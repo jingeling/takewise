@@ -167,7 +167,14 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .trend.up{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
 .trend.down{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
 .trend.flat{background:var(--row);color:var(--muted)}
-.datarow{border-top:1px solid var(--line);padding-top:12px;justify-content:space-between}
+.datarow{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+.datarow .field{max-width:52ch}
+.getapp{border:2px solid var(--accent);gap:14px}
+.getapp ol{margin:0;padding-left:22px;display:grid;gap:6px}
+.getapp .row{gap:12px}
+.flash{animation:flash 1.2s ease}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 30%,transparent)}}
+.storestatus button{padding:3px 10px;font-size:12.5px}
 button.danger{color:var(--rec)}
 .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
 [hidden]{display:none!important}
@@ -180,7 +187,7 @@ button.danger{color:var(--rec)}
       <h1>Takewise</h1>
       <p class="tag">Practise a track take by take. Sing along, see where your pitch and volume drifted, then drill the exact passage.</p>
     </div>
-    <p class="privacy">Recordings stay in this browser tab. Nothing is uploaded.</p>
+    <p class="privacy">Everything stays on your computer. Nothing is uploaded.</p>
   </header>
 
   <div class="layout">
@@ -217,7 +224,18 @@ button.danger{color:var(--rec)}
     </aside>
 
     <main>
-      <section class="panel today" aria-label="Today's practice">
+      <section class="panel getapp" id="getApp" aria-labelledby="h-get" hidden>
+        <h2 id="h-get">Download Takewise to start singing</h2>
+        <p>This preview can’t use your microphone. Takewise runs as a single file on your computer. Once it’s there you can sing right away, and every take, streak and goal is saved automatically.</p>
+        <ol>
+          <li>Download Takewise.</li>
+          <li>Open <span class="mono">Takewise.html</span> from your Downloads folder in Chrome or Edge.</li>
+          <li>Allow the microphone when the browser asks.</li>
+        </ol>
+        <div class="row"><button class="accent" id="btnGetApp">Download Takewise</button><span class="small muted" id="getAppMsg" aria-live="polite">Below is a preview with an example take, so you can see the feedback first.</span></div>
+      </section>
+
+      <section class="panel today" id="todayPanel" aria-label="Today's practice">
         <div class="todayrow">
           <div class="streak"><b id="tStreak" class="mono">0</b><span id="tStreakLbl">day streak</span></div>
           <div class="goal" id="tGoal"><div class="head"><span>Today</span><span class="mono" id="tGoalTxt">0 / 3 takes</span></div><div class="meter"><i id="tGoalBar"></i></div></div>
@@ -298,11 +316,9 @@ button.danger{color:var(--rec)}
           <div class="field"><h3>Habits the app keeps hearing</h3><p class="small muted">Across your last 10 takes, all tracks.</p><div class="list" id="habits"></div></div>
           <div class="field"><h3>Your tracks</h3><p class="small muted">Best and latest on-pitch score per track.</p><div class="list" id="tracksList"></div></div>
         </div>
-        <div class="row datarow">
-          <div class="row">
-            <button id="btnExport">Export progress</button>
-            <label class="btn">Import progress<input type="file" id="fileImport" accept=".json,application/json"></label>
-          </div>
+        <div class="datarow">
+          <div class="field"><h3>Backup</h3><p class="small muted" id="backupInfo">Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer.</p>
+            <div class="row"><button id="btnExport">Save a backup</button><label class="btn">Restore a backup<input type="file" id="fileImport" accept=".json,application/json"></label></div></div>
           <div class="row" id="delWrap"><button class="ghost danger" id="btnDelete">Delete all progress</button></div>
         </div>
         <p class="small muted" id="dataMsg" aria-live="polite"></p>
@@ -680,7 +696,7 @@ async function measureNoise() {
 function showMicHelp(err) {
   const blocked = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message === 'unsupported');
   $('#micHelpText').textContent = blocked
-    ? 'The microphone isn’t available here. Embedded previews block it; open Takewise as its own page in Chrome, Edge, Firefox or Safari and allow the microphone. You can also upload a recording of yourself singing along, started at the beginning of the passage.'
+    ? 'Takewise needs your microphone. Click the microphone or lock icon at the left of the address bar, choose Allow, then press Sing a take again. Or upload a recording of yourself singing along, started at the beginning of the passage.'
     : 'No microphone was found. Connect one, or upload a recording of yourself singing along, started at the beginning of the passage.';
   $('#micHelp').hidden = false;
   setLive('Mic blocked', 'No microphone', '', 'warn');
@@ -688,6 +704,7 @@ function showMicHelp(err) {
 
 /* ---------- transport ---------- */
 async function startTake() {
+  if (HOSTED) { showGetApp(); return; }
   if (!S.ref || S.playing || S.busy) return;
   let m; try { m = await ensureMic(); } catch (e) { showMicHelp(e); return; }
   const ctx = ac(); await ctx.resume();
@@ -999,6 +1016,7 @@ function renderTakes() {
 
 /* ---------- range test ---------- */
 async function rangeTest(which) {
+  if (HOSTED) { showGetApp(); return; }
   if (S.playing || S.busy) return;
   try { await ensureMic(); } catch (e) { showMicHelp(e); $('#rangeOut').textContent = 'Microphone needed for the range test'; return; }
   await ac().resume(); S.busy = true; setButtons();
@@ -1031,41 +1049,38 @@ function idbDo(name, mode, fn) {
     tx.oncomplete = () => res(req ? req.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
   });
 }
+let HOSTED = window.self !== window.top || !!window.__forceHosted;
+const LS = 'takewise:db:';
+function lsRead(k, d) { try { const v = localStorage.getItem(LS + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+function lsWrite(k, v) { try { localStorage.setItem(LS + k, JSON.stringify(v)); } catch (e) { throw { code: 'quota_exceeded', message: String(e) }; } }
 const Store = {
-  mode: 'memory', idb: null, base: null, err: null,
+  mode: 'memory', idb: null, err: null,
   mem: { takes: new Map(), tracks: new Map(), profile: null, blobs: new Map() },
   async init() {
-    try { this.idb = await openIDB(); } catch (e) { this.idb = null; }
-    let w = 0; while (!(window.claude && window.claude.use) && window.parent !== window && w < 10) { await sleep(100); w++; }
-    if (window.claude && window.claude.use) {
-      try {
-        const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-        const uid = user ? await user.id() : null;
-        if (db && uid) { this.base = db.doc('data/users/' + uid + '/profile'); this.mode = 'cloud'; return; }
-      } catch (e) {}
-    }
-    if (this.idb) this.mode = 'local';
+    if (HOSTED) return; // preview: nothing is kept, the downloaded app is the one home for progress
+    try { this.idb = await openIDB(); this.mode = 'local'; return; } catch (e) { this.idb = null; }
+    try { localStorage.setItem(LS + 'probe', '1'); localStorage.removeItem(LS + 'probe'); this.mode = 'ls'; } catch (e) {}
   },
   async getProfile() {
-    if (this.mode === 'cloud') { const sn = await this.base.get(); return sn.exists ? clean(sn.data()) : null; }
     if (this.mode === 'local') return (await idbDo('meta', 'readonly', st => st.get('profile'))) || null;
+    if (this.mode === 'ls') return lsRead('profile', null);
     return this.mem.profile;
   },
   async saveProfile(p) {
     p = clean(p);
-    if (this.mode === 'cloud') return this.base.set(p);
     if (this.mode === 'local') return idbDo('meta', 'readwrite', st => st.put(p, 'profile'));
+    if (this.mode === 'ls') return lsWrite('profile', p);
     this.mem.profile = p;
   },
   async list(coll) {
-    if (this.mode === 'cloud') { const sn = await this.base.collection(coll).limit(1000).get(); return sn.docs.map(d => clean(d.data())); }
     if (this.mode === 'local') return (await idbDo(coll, 'readonly', st => st.getAll())) || [];
+    if (this.mode === 'ls') return Object.values(lsRead(coll, {}));
     return [...this.mem[coll].values()];
   },
   async put(coll, id, rec) {
     rec = clean(rec);
-    if (this.mode === 'cloud') return this.base.collection(coll).doc(id).set(rec);
     if (this.mode === 'local') return idbDo(coll, 'readwrite', st => st.put(rec, id));
+    if (this.mode === 'ls') { const m = lsRead(coll, {}); m[id] = rec; return lsWrite(coll, m); }
     this.mem[coll].set(id, rec);
   },
   listTakes() { return this.list('takes'); },
@@ -1081,10 +1096,7 @@ const Store = {
     return this.mem.blobs.get(k) || null;
   },
   async deleteAll() {
-    if (this.mode === 'cloud') {
-      for (const coll of ['takes', 'tracks']) { const sn = await this.base.collection(coll).limit(1000).get(); for (const d of sn.docs) await this.base.collection(coll).doc(d.id).delete(); }
-      await this.base.delete();
-    }
+    for (const k of ['profile', 'takes', 'tracks']) { try { localStorage.removeItem(LS + k); } catch (e) {} }
     if (this.idb) for (const n of ['takes', 'tracks', 'meta', 'blobs']) { try { await idbDo(n, 'readwrite', st => st.clear()); } catch (e) {} }
     this.mem = { takes: new Map(), tracks: new Map(), profile: null, blobs: new Map() };
   }
@@ -1093,12 +1105,20 @@ function storeFail(e) { Store.err = e || { message: 'unknown' }; renderStatus();
 function saveProfile() { if (S.profile) Store.saveProfile(S.profile).catch(storeFail); }
 function renderStatus() {
   const el = $('#storeStatus'); if (!el) return;
-  const e = Store.err;
-  el.className = 'storestatus ' + (e ? 'warn' : Store.mode);
-  if (e) el.textContent = e.code === 'quota_exceeded' ? 'Your progress storage is full. Export your progress, then delete it to start fresh.' : 'Couldn’t save the latest change. It’s kept until you close this tab; try again later or export your progress.';
-  else el.textContent = Store.mode === 'cloud' ? 'Progress is saved privately to your Claude account. Recordings stay in this browser.'
-    : Store.mode === 'local' ? 'Progress is saved in this browser on this device. Use Export to move it to another browser.'
-    : 'Progress can’t be saved in this view, so it lasts until you close the tab.';
+  const e = Store.err, saving = Store.mode === 'local' || Store.mode === 'ls';
+  el.className = 'storestatus ' + (e || !saving ? 'warn' : 'local');
+  let html;
+  if (e) html = e.code === 'quota_exceeded' ? 'There’s no room left to save on this computer. Save a backup, then delete old progress to continue.' : 'Your last take couldn’t be saved. Save a backup now so nothing is lost.';
+  else if (!saving) html = 'This browser won’t let Takewise save. Open the file in Chrome or Edge to keep your progress.';
+  else html = 'Saved automatically on this computer.' + (backupDue() ? ' It’s been a while since your last backup.' : '');
+  el.innerHTML = esc(html) + ((e || (saving && backupDue())) ? ' <button id="btnBackupNow">Save a backup</button>' : '');
+  const b = $('#btnBackupNow'); if (b) b.addEventListener('click', exportData);
+}
+function backupDue() {
+  const H = S.history, last = S.profile && S.profile.lastBackup;
+  if (H.length < 10) return false;
+  if (!last) return true;
+  return Date.now() - last > 14 * 864e5 && H.some(r => r.createdAt > last);
 }
 
 /* ---------- take records ---------- */
@@ -1227,6 +1247,8 @@ function renderToday() {
 }
 function renderProgress() {
   const f = facts();
+  const lb = S.profile && S.profile.lastBackup;
+  $('#backupInfo').textContent = 'Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer. ' + (lb ? `Last backup: ${relDay(lb)}.` : 'No backup yet.');
   const days = f.days.size;
   $('#progTiles').innerHTML = tile('Days practised', String(days), null) + tile('Longest streak', f.longest + (f.longest === 1 ? ' day' : ' days'), null) + tile('Time singing', f.minutes < 1 ? Math.round(f.minutes * 60) + ' s' : Math.round(f.minutes) + ' min', null) + tile('Takes', String(f.total), null);
   renderDays(f);
@@ -1277,17 +1299,15 @@ function renderDays(f) {
 function dataMsg(t) { $('#dataMsg').textContent = t; }
 async function exportData() {
   const data = JSON.stringify({ app: 'takewise', version: 1, exportedAt: new Date().toISOString(), profile: S.profile, tracks: Object.values(S.tracksMeta), takes: S.history }, null, 1);
-  const name = `takewise-progress-${dayKey(Date.now())}.json`;
-  if (window.claude && window.claude.use) {
-    try { const dl = await window.claude.use('downloads'); if (dl) { await dl.save({ filename: name, data }); dataMsg('Progress exported.'); return; } }
-    catch (e) { if (e && e.code === 'declined') { dataMsg('Export cancelled.'); return; } }
-  }
+  const name = `takewise-backup-${dayKey(Date.now())}.json`;
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove(); dataMsg(`Exported ${S.history.length} takes as ${name}.`);
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  if (S.profile) { S.profile.lastBackup = Date.now(); saveProfile(); }
+  dataMsg(`Backup saved to your Downloads folder as ${name}.`); renderToday(); renderProgress();
 }
 async function importData(file) {
   let j; try { j = JSON.parse(await file.text()); } catch (e) { j = null; }
-  if (!j || j.app !== 'takewise' || !Array.isArray(j.takes)) { dataMsg('That file isn’t a Takewise progress export.'); return; }
+  if (!j || j.app !== 'takewise' || !Array.isArray(j.takes)) { dataMsg('That file isn’t a Takewise backup.'); return; }
   for (const t of (Array.isArray(j.tracks) ? j.tracks : [])) if (t && typeof t.id === 'string' && !S.tracksMeta[t.id]) { S.tracksMeta[t.id] = t; await Store.saveTrack(t).catch(storeFail); }
   const have = new Set(S.history.map(r => r.uid)); let n = 0;
   for (const r of j.takes) {
@@ -1298,10 +1318,10 @@ async function importData(file) {
   S.history.sort((a, b) => a.createdAt - b.createdAt);
   if (j.profile && typeof j.profile.goal === 'number' && S.profile && !S.history.length) { S.profile.goal = clamp(j.profile.goal, 1, 10); saveProfile(); }
   rebuildTrackTakes(); renderTakes(); renderResults(); renderToday(); renderProgress(); draw();
-  dataMsg(n ? `Imported ${n} take${n === 1 ? '' : 's'}. Recordings aren’t part of an export, so imported takes show scores only.` : 'Nothing new to import; those takes are already here.');
+  dataMsg(n ? `Restored ${n} take${n === 1 ? '' : 's'}. Recordings aren’t part of a backup, so restored takes show scores only.` : 'Everything in that backup is already here.');
 }
 function askDelete() {
-  const w = $('#delWrap'), where = Store.mode === 'cloud' ? 'your Claude account and this browser' : 'this browser';
+  const w = $('#delWrap'), where = 'this computer';
   w.innerHTML = `<span class="confirm"><span>Delete every take, streak and saved track from ${where}? This can’t be undone.</span><button class="danger" id="delYes">Delete everything</button><button class="ghost" id="delNo">Cancel</button></span>`;
   $('#delNo').addEventListener('click', resetDelete);
   $('#delYes').addEventListener('click', async () => {
@@ -1317,7 +1337,30 @@ function askDelete() {
 }
 function resetDelete() { $('#delWrap').innerHTML = '<button class="ghost danger" id="btnDelete">Delete all progress</button>'; $('#btnDelete').addEventListener('click', askDelete); }
 
+function showGetApp() {
+  const c = $('#getApp'); c.hidden = false; c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+  c.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  setLive('Preview', 'Download Takewise to sing', 'This preview can’t use the microphone.', 'warn');
+}
+async function getApp() {
+  const btn = $('#btnGetApp'), msg = $('#getAppMsg');
+  btn.disabled = true; btn.textContent = 'Preparing…';
+  try {
+    const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+    if (!dl) throw { code: 'unavailable' };
+    const res = await fetch('Takewise.html'); if (!res.ok) throw { code: 'unavailable' };
+    await dl.save({ filename: 'Takewise.html', data: await res.blob() });
+    msg.textContent = 'Downloaded. Open Takewise.html from your Downloads folder in Chrome or Edge.';
+  } catch (e) {
+    msg.textContent = e && e.code === 'declined' ? 'Download cancelled.' : e && e.code === 'rate_limited' ? 'A download is already waiting for your OK.' : 'Downloading isn’t available here. Ask Claude in the chat for the Takewise file.';
+  }
+  btn.disabled = false; btn.textContent = 'Download Takewise';
+}
+function applyMode() {
+  $('#getApp').hidden = !HOSTED; $('#todayPanel').hidden = HOSTED; $('#progress').hidden = HOSTED;
+}
 async function startup() {
+  applyMode();
   await Store.init();
   try { S.profile = await Store.getProfile(); } catch (e) { storeFail(e); }
   if (!S.profile) { S.profile = { goal: 3, createdAt: Date.now(), lastTrackId: 'sample', range: S.range }; saveProfile(); }
@@ -1334,11 +1377,12 @@ async function startup() {
 $('#goalDown').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) - 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
 $('#goalUp').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) + 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
 $('#btnExport').addEventListener('click', exportData);
+$('#btnGetApp').addEventListener('click', getApp);
 $('#fileImport').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
 $('#btnDelete').addEventListener('click', askDelete);
 
 /* ---------- wiring ---------- */
-$('#btnTake').addEventListener('click', () => { if (!S.set.phones) setLive('Tip', 'Headphones?', 'Without headphones the mic also hears the track. Tick the box in Settings when you wear them.'); startTake(); });
+$('#btnTake').addEventListener('click', () => { if (!S.set.phones && !HOSTED) setLive('Tip', 'Headphones?', 'Without headphones the mic also hears the track. Tick the box in Settings when you wear them.'); startTake(); });
 $('#btnListen').addEventListener('click', startListen);
 $('#btnStop').addEventListener('click', stopAll);
 $('#btnLow').addEventListener('click', () => rangeTest('low'));
