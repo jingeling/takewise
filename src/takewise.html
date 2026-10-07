@@ -131,6 +131,44 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .badge{font-size:11.5px;border-radius:999px;padding:2px 8px;background:var(--row);color:var(--muted);font-weight:700}
 .badge.best{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
 .spark{width:100%;height:60px}
+/* today + progress */
+.today{gap:10px}
+.todayrow{display:grid;grid-template-columns:auto minmax(160px,220px) minmax(0,1fr);gap:20px;align-items:center}
+@media (max-width:700px){.todayrow{grid-template-columns:auto minmax(0,1fr)}.todayrow .nudge{grid-column:1 / -1}}
+.streak{display:grid;justify-items:start;line-height:1}
+.streak b{font-family:var(--f-display);font-size:40px;font-weight:700;font-variant-numeric:tabular-nums}
+.streak span{font-size:12.5px;color:var(--muted);margin-top:4px}
+.goal{display:grid;gap:6px}
+.goal .head{display:flex;justify-content:space-between;font-size:13px}
+.goal .meter{height:10px;border-radius:5px}
+.goal .meter > i{background:var(--accent);transition:width .4s ease}
+.goal.done .meter > i{background:var(--good)}
+.nudge{font-size:15px;max-width:62ch}
+.storestatus{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted)}
+.storestatus::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.storestatus.cloud::before,.storestatus.local::before{background:var(--good)}
+.storestatus.warn::before{background:var(--warn)}
+.events{display:grid;gap:6px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px}
+.stepper button{border:0;padding:4px 10px;font-size:16px}
+.stepper span{min-width:2ch;text-align:center}
+.chartwrap{position:relative;overflow-x:auto}
+.days{width:100%;height:150px;display:block;min-width:320px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12.5px;border-radius:6px;padding:5px 8px;white-space:nowrap;transform:translate(-50%,-100%)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.list{display:grid;gap:0}
+.li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:0}
+.li .sub{grid-column:1;font-size:12.5px;color:var(--muted)}
+.li .name{font-weight:700;overflow-wrap:anywhere}
+.trend{font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.trend.up{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.trend.down{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.trend.flat{background:var(--row);color:var(--muted)}
+.datarow{border-top:1px solid var(--line);padding-top:12px;justify-content:space-between}
+button.danger{color:var(--rec)}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -178,6 +216,15 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
     </aside>
 
     <main>
+      <section class="panel today" aria-label="Today's practice">
+        <div class="todayrow">
+          <div class="streak"><b id="tStreak" class="mono">0</b><span id="tStreakLbl">day streak</span></div>
+          <div class="goal" id="tGoal"><div class="head"><span>Today</span><span class="mono" id="tGoalTxt">0 / 3 takes</span></div><div class="meter"><i id="tGoalBar"></i></div></div>
+          <p class="nudge" id="tNudge" aria-live="polite">Loading your progress…</p>
+        </div>
+        <p class="storestatus" id="storeStatus">Checking where progress can be saved…</p>
+      </section>
+
       <section class="panel stage" aria-label="Practice stage">
         <div class="bar">
           <div class="row">
@@ -236,6 +283,29 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
         </div>
         <p class="small muted">Most people dislike how their recorded voice sounds at first. That reaction fades with listening; trust the measurements more than the first impression.</p>
       </section>
+
+      <section class="panel" id="progress" aria-labelledby="h-prog">
+        <header style="flex-wrap:wrap"><h2 id="h-prog">Progress</h2>
+          <div class="row"><span class="small muted">Daily goal</span><span class="stepper"><button class="ghost" id="goalDown" aria-label="Lower daily goal">−</button><span class="mono" id="goalVal">3</span><button class="ghost" id="goalUp" aria-label="Raise daily goal">+</button></span><span class="small muted">takes</span></div>
+        </header>
+        <div class="tiles" id="progTiles"></div>
+        <div class="field">
+          <div class="head"><h3>Last 14 days</h3><span class="small muted">Takes per day · solid bars met the goal (dashed line)</span></div>
+          <div class="chartwrap"><svg class="days" id="daysChart" role="img" aria-label="Takes per day over the last 14 days"></svg><div class="tip" id="dayTip" hidden></div></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><h3>Habits the app keeps hearing</h3><p class="small muted">Across your last 10 takes, all tracks.</p><div class="list" id="habits"></div></div>
+          <div class="field"><h3>Your tracks</h3><p class="small muted">Best and latest on-pitch score per track.</p><div class="list" id="tracksList"></div></div>
+        </div>
+        <div class="row datarow">
+          <div class="row">
+            <button id="btnExport">Export progress</button>
+            <label class="btn">Import progress<input type="file" id="fileImport" accept=".json,application/json"></label>
+          </div>
+          <div class="row" id="delWrap"><button class="ghost danger" id="btnDelete">Delete all progress</button></div>
+        </div>
+        <p class="small muted" id="dataMsg" aria-live="polite"></p>
+      </section>
     </main>
 
     <aside class="side2">
@@ -292,7 +362,7 @@ const S = {
   view: { center: 5, span: 10 }, playing: null, selected: null, overlay: null,
   range: store.get('range', { low: null, high: null }),
   set: Object.assign({ tol: 50, mode: 'guided', octFree: true, offsetMs: null, trackVol: 0.8, hearSelf: false, selfVol: 0.5, phones: false }, store.get('settings', {})),
-  mic: null, busy: false
+  mic: null, busy: false, history: [], tracksMeta: {}, trackBlob: {}, profile: null
 };
 const saveSettings = () => store.set('settings', S.set);
 
@@ -364,7 +434,7 @@ function liveFrame() {
 }
 
 /* ---------- reference track ---------- */
-async function loadReference(buffer, name, sample) {
+async function loadReference(buffer, name, sample, trackId) {
   setLive('Reading', 'Reading the melody…', '');
   const x = await toSR(buffer);
   const A = await analyse(x, p => setLive('Reading', `Reading the melody… ${Math.round(p * 100)}%`, ''));
@@ -390,10 +460,18 @@ async function loadReference(buffer, name, sample) {
     notes.push({ i0: s, i1: i }); i++;
   }
   R.notes = notes.filter(nt => (nt.i1 - nt.i0) * HOPS >= 0.15).map(nt => { const v = []; for (let k = nt.i0; k <= nt.i1; k++) v.push(A.midi[k]); nt.m = median(v); return nt; });
-  S.ref = R; S.takes = []; S.selected = null; S.overlay = null; S.region = null; S.cursor = 0;
+  R.id = trackId || 'sample';
+  S.ref = R; S.selected = null; S.overlay = null; S.region = null; S.cursor = 0;
+  S.takes = S.history.filter(r => r.trackId === R.id).map((r, k) => fromRecord(r, k + 1));
+  S.nextTake = S.takes.length + 1;
+  if (S.takes.length) { S.selected = S.takes[S.takes.length - 1]; S.overlay = S.takes.length > 1 ? S.takes[S.takes.length - 2] : null; }
+  const meta = { id: R.id, name, dur: R.dur, mLo: isNaN(R.mLo) ? null : R.mLo, mHi: isNaN(R.mHi) ? null : R.mHi, clarity: R.clarity, sample: !!sample, addedAt: (S.tracksMeta[R.id] && S.tracksMeta[R.id].addedAt) || Date.now() };
+  S.tracksMeta[R.id] = meta; Store.saveTrack(meta).catch(storeFail);
+  if (S.profile && S.profile.lastTrackId !== R.id) { S.profile.lastTrackId = R.id; saveProfile(); }
   S.view.span = Math.min(12, Math.max(4, R.dur)); S.view.center = S.view.span / 2;
   renderTrack(); renderRange(); renderRegion(); renderTakes(); renderResults(); setButtons(); draw();
   setLive('Ready', 'Ready', 'Drag across the strip below to pick a passage, or sing the whole track.');
+  renderToday(); renderProgress();
 }
 const voiced = i => !isNaN(S.ref.midi[i]);
 const idxOf = t => clamp(Math.round(t / HOPS), 0, S.ref.n - 1);
@@ -427,7 +505,8 @@ async function synth(notes, dur, o) {
 async function loadSample() {
   const { notes, dur } = sampleNotes();
   const buf = await synth(notes, dur, {});
-  await loadReference(buf, 'Sample: five-note scale with a swell', true);
+  await loadReference(buf, 'Sample: five-note scale with a swell', true, 'sample');
+  if (S.takes.length) return;
   // An example take sung by the app: flat on the high notes, scoops into notes, ignores the swells.
   const ex = await synth(notes, dur, { voice: true, gain: 0.55, detune: n => n.m >= 67 ? -40 : -4, scoop: n => (n.d < 1 && n.m >= 64 ? -130 : 0) });
   const x = await toSR(ex);
@@ -437,14 +516,15 @@ async function loadSample() {
 /* ---------- takes ---------- */
 async function addTake(o) {
   const raw = await analyse(o.x);
-  const take = Object.assign({ id: S.nextTake++, raw, created: Date.now() }, o);
+  const take = Object.assign({ id: o.source === 'example' ? 0 : S.nextTake++, uid: newUid(), trackId: S.ref.id, raw, created: Date.now() }, o);
   mapTake(take); computeStats(take);
   if (o.source !== 'example') { const b = bestOffset(take); if (Math.abs(b.best - take.offset) > 0.06 && b.bestE < b.curE * 0.7) take.alignHint = Math.round((b.best - take.offset) * 1000); }
   S.takes.push(take);
   if (o.mode === 'blind' && o.source !== 'example') { take.hidden = true; take.guess = {}; }
   const prev = similarTakes(take).filter(t => t !== take && !t.hidden).pop();
   S.selected = take; S.overlay = prev || null;
-  renderTakes(); renderResults(); draw();
+  if (o.source !== 'example') { take.events = takeEvents(take); await persistTake(take, true); }
+  renderTakes(); renderResults(); draw(); renderToday(); renderProgress();
   return take;
 }
 function mapTake(take) {
@@ -485,7 +565,7 @@ function phraseAround(i) { const p = S.ref.phrases.find(p => i >= p.i0 && i <= p
 function diagnose(take) {
   const R = S.ref, st = take.stats, out = [], c = n => Math.round(Math.abs(n));
   const notes = R.notes.filter(nt => nt.i0 * HOPS >= take.a && nt.i1 * HOPS <= take.b);
-  if (st.sung < 0.6) out.push({ tone: 'warn', title: `Only ${Math.round(st.sung * 100)}% of the melody was picked up`, ev: 'Quiet passages or background noise make the pitch line break up.', tip: 'Sing a little closer to the microphone, in a quiet room, with headphones so the track stays out of the mic.' });
+  if (st.sung < 0.6) out.push({ key: 'pickup', tone: 'warn', title: `Only ${Math.round(st.sung * 100)}% of the melody was picked up`, ev: 'Quiet passages or background noise make the pitch line break up.', tip: 'Sing a little closer to the microphone, in a quiet room, with headphones so the track stays out of the mic.' });
   // high notes vs rest
   const pitches = notes.map(n => n.m);
   if (pitches.length >= 4) {
@@ -496,10 +576,10 @@ function diagnose(take) {
       const bh = median(hiE), bl = median(loE);
       if (hiE.length > 10 && bh < -20 && bh - bl < -15) {
         const worst = notes.filter(n => n.m >= thr).sort((a, b) => median(noteSeg(take, a, 0.15)) - median(noteSeg(take, b, 0.15)))[0];
-        out.push({ tone: 'warn', title: `Flat on the high notes, ${c(bh)} cents under`, ev: `Your lower notes sit at ${minus(Math.round(bl))} cents; from ${noteName(thr)} upward you drop to ${minus(Math.round(bh))}.`, tip: 'Keep the airflow steady as you go up, and think of the high note as forward and easy rather than reaching up with your chin. Hear the note in your head before you sing it.', drill: worst && phraseAround(worst.i0) });
+        out.push({ key: 'flatHigh', tone: 'warn', title: `Flat on the high notes, ${c(bh)} cents under`, ev: `Your lower notes sit at ${minus(Math.round(bl))} cents; from ${noteName(thr)} upward you drop to ${minus(Math.round(bh))}.`, tip: 'Keep the airflow steady as you go up, and think of the high note as forward and easy rather than reaching up with your chin. Hear the note in your head before you sing it.', drill: worst && phraseAround(worst.i0) });
       } else if (hiE.length > 10 && bh > 20 && bh - bl > 15) {
         const worst = notes.filter(n => n.m >= thr)[0];
-        out.push({ tone: 'warn', title: `Sharp on the high notes, ${c(bh)} cents over`, ev: `From ${noteName(thr)} upward you land ${c(bh)} cents high, while lower notes sit at ${minus(Math.round(bl))}.`, tip: 'Pushing often makes high notes sharp. Sing them a little softer and let the pitch settle.', drill: worst && phraseAround(worst.i0) });
+        out.push({ key: 'sharpHigh', tone: 'warn', title: `Sharp on the high notes, ${c(bh)} cents over`, ev: `From ${noteName(thr)} upward you land ${c(bh)} cents high, while lower notes sit at ${minus(Math.round(bl))}.`, tip: 'Pushing often makes high notes sharp. Sing them a little softer and let the pitch settle.', drill: worst && phraseAround(worst.i0) });
       }
     }
   }
@@ -511,8 +591,8 @@ function diagnose(take) {
   });
   if (ds.length >= 3) {
     const md = median(ds), share = ds.filter(d => d < -40).length / ds.length;
-    if (md < -35 && share >= 0.3) out.push({ tone: 'warn', title: 'Sliding up into notes', ev: `On ${Math.round(share * 100)}% of the notes you start about ${c(md)} cents low and slide up to the pitch.`, tip: 'Hear the target note before you start it, then begin right on it. Practise the passage on “nee” or a hum first so the onset lands clean.', drill: worstScoop && phraseAround(worstScoop.i0) });
-    else if (md > 35 && share < 0.3 && ds.filter(d => d > 40).length / ds.length >= 0.3) out.push({ tone: 'warn', title: 'Overshooting the start of notes', ev: `You often start about ${c(md)} cents high and come down onto the note.`, tip: 'Aim for the middle of the note from the first moment; a softer onset helps.', drill: null });
+    if (md < -35 && share >= 0.3) out.push({ key: 'scoop', tone: 'warn', title: 'Sliding up into notes', ev: `On ${Math.round(share * 100)}% of the notes you start about ${c(md)} cents low and slide up to the pitch.`, tip: 'Hear the target note before you start it, then begin right on it. Practise the passage on “nee” or a hum first so the onset lands clean.', drill: worstScoop && phraseAround(worstScoop.i0) });
+    else if (md > 35 && share < 0.3 && ds.filter(d => d > 40).length / ds.length >= 0.3) out.push({ key: 'overshoot', tone: 'warn', title: 'Overshooting the start of notes', ev: `You often start about ${c(md)} cents high and come down onto the note.`, tip: 'Aim for the middle of the note from the first moment; a softer onset helps.', drill: null });
   }
   // drift on long notes
   const slopes = []; let worstDrift = null, wd = 0;
@@ -524,8 +604,8 @@ function diagnose(take) {
     let nu = 0, de = 0; xs.forEach((x, k) => { nu += (x - mx) * (ys[k] - my); de += (x - mx) ** 2; });
     const sl = nu / de; slopes.push(sl); if (sl < wd) { wd = sl; worstDrift = nt; }
   });
-  if (slopes.length && median(slopes) < -25) out.push({ tone: 'warn', title: 'Long notes sag flat', ev: `Held notes drift down about ${c(median(slopes))} cents per second.`, tip: 'This usually means the breath is running out. Take a fuller, low breath before the phrase and keep the note supported to its end.', drill: worstDrift && phraseAround(worstDrift.i0) });
-  else if (slopes.length && median(slopes) > 25) out.push({ tone: 'warn', title: 'Long notes creep sharp', ev: `Held notes drift up about ${c(median(slopes))} cents per second.`, tip: 'Release pressure while holding the note; keep the volume steady rather than squeezing.', drill: null });
+  if (slopes.length && median(slopes) < -25) out.push({ key: 'sag', tone: 'warn', title: 'Long notes sag flat', ev: `Held notes drift down about ${c(median(slopes))} cents per second.`, tip: 'This usually means the breath is running out. Take a fuller, low breath before the phrase and keep the note supported to its end.', drill: worstDrift && phraseAround(worstDrift.i0) });
+  else if (slopes.length && median(slopes) > 25) out.push({ key: 'creep', tone: 'warn', title: 'Long notes creep sharp', ev: `Held notes drift up about ${c(median(slopes))} cents per second.`, tip: 'Release pressure while holding the note; keep the volume steady rather than squeezing.', drill: null });
   // volume: does the singer follow swells?
   let swellMiss = null;
   notes.filter(n => (n.i1 - n.i0) * HOPS >= 0.9).forEach(nt => {
@@ -535,19 +615,19 @@ function diagnose(take) {
   });
   if (swellMiss) {
     const up = swellMiss.rd > 0;
-    out.push({ tone: 'warn', title: up ? 'Not following the swell' : 'Not following the fade', ev: `On ${noteName(swellMiss.nt.m)} the track gets ${Math.round(Math.abs(swellMiss.rd))} dB ${up ? 'louder' : 'softer'}; your voice changes ${minus(Math.round(swellMiss.ud))} dB.`, tip: up ? 'Start the note softer than feels natural, then add breath, not throat pressure, to grow it.' : 'Let the note get softer while keeping the pitch up; soft notes tend to go flat.', drill: phraseAround(swellMiss.nt.i0) });
+    out.push({ key: 'swell', tone: 'warn', title: up ? 'Not following the swell' : 'Not following the fade', ev: `On ${noteName(swellMiss.nt.m)} the track gets ${Math.round(Math.abs(swellMiss.rd))} dB ${up ? 'louder' : 'softer'}; your voice changes ${minus(Math.round(swellMiss.ud))} dB.`, tip: up ? 'Start the note softer than feels natural, then add breath, not throat pressure, to grow it.' : 'Let the note get softer while keeping the pitch up; soft notes tend to go flat.', drill: phraseAround(swellMiss.nt.i0) });
   }
   // getting louder on high notes when the track does not
   if (pitches.length >= 4) {
     const thr = pct(pitches, 0.75), hu = [], lu = [], hr = [], lr = [];
     notes.forEach(nt => { for (let i = nt.i0; i <= nt.i1; i++) if (take.err[i] === take.err[i]) { (nt.m >= thr ? hu : lu).push(take.udb[i]); (nt.m >= thr ? hr : lr).push(R.db[i]); } });
     const du = median(hu) - median(lu), dr = median(hr) - median(lr);
-    if (hu.length > 10 && lu.length > 10 && du - dr > 6) out.push({ tone: 'warn', title: 'Pushing volume on high notes', ev: `You get ${Math.round(du - dr)} dB louder on the high notes than the track does.`, tip: 'Volume is not what makes a high note work. Try the passage at a comfortable medium volume all the way through.', drill: null });
+    if (hu.length > 10 && lu.length > 10 && du - dr > 6) out.push({ key: 'push', tone: 'warn', title: 'Pushing volume on high notes', ev: `You get ${Math.round(du - dr)} dB louder on the high notes than the track does.`, tip: 'Volume is not what makes a high note work. Try the passage at a comfortable medium volume all the way through.', drill: null });
   }
   // overall leaning
-  if (!out.some(h => /high notes/.test(h.title)) && Math.abs(st.bias) >= 25) out.push({ tone: 'warn', title: st.bias < 0 ? `Leaning flat overall, ${c(st.bias)} cents` : `Leaning sharp overall, ${c(st.bias)} cents`, ev: 'The whole passage sits on the same side of the target.', tip: st.bias < 0 ? 'Listen to the first note of each phrase before you sing it, and imagine the pitch slightly higher.' : 'Relax and sing a touch softer; imagine the pitch slightly lower.', drill: null });
-  if (!out.length && st.onPitch >= 0.6) out.push({ tone: 'good', title: 'No clear pattern of mistakes', ev: `${Math.round(st.onPitch * 100)}% on pitch and no consistent leaning.`, tip: 'Narrow the on-pitch zone to Strict, or try a Blind take to check your ear without the line.', drill: null });
-  if (!out.length) out.push({ tone: 'info', title: 'Misses without one clear cause', ev: 'Your pitch varies on both sides of the target.', tip: 'Pick the weakest passage below, slow down, and sing it a few times in a row.', drill: null });
+  if (!out.some(h => /high notes/.test(h.title)) && Math.abs(st.bias) >= 25) out.push({ key: (st.bias < 0 ? 'flat' : 'sharp'), tone: 'warn', title: st.bias < 0 ? `Leaning flat overall, ${c(st.bias)} cents` : `Leaning sharp overall, ${c(st.bias)} cents`, ev: 'The whole passage sits on the same side of the target.', tip: st.bias < 0 ? 'Listen to the first note of each phrase before you sing it, and imagine the pitch slightly higher.' : 'Relax and sing a touch softer; imagine the pitch slightly lower.', drill: null });
+  if (!out.length && st.onPitch >= 0.6) out.push({ key: 'clean', tone: 'good', title: 'No clear pattern of mistakes', ev: `${Math.round(st.onPitch * 100)}% on pitch and no consistent leaning.`, tip: 'Narrow the on-pitch zone to Strict, or try a Blind take to check your ear without the line.', drill: null });
+  if (!out.length) out.push({ key: 'mixed', tone: 'info', title: 'Misses without one clear cause', ev: 'Your pitch varies on both sides of the target.', tip: 'Pick the weakest passage below, slow down, and sing it a few times in a row.', drill: null });
   return out.slice(0, 3);
 }
 
@@ -750,13 +830,13 @@ function drawDetail() {
   // fold a sung pitch to the octave closest to the target
   const fold = (u, i) => { if (!S.set.octFree) return u; const r = R.midi[i]; if (isNaN(r)) return u; return u + 12 * Math.round((r - u) / 12); };
   // overlay take
-  const ov = S.overlay && S.overlay !== S.selected && !S.overlay.hidden ? S.overlay : null;
+  const ov = S.overlay && S.overlay !== S.selected && !S.overlay.hidden && S.overlay.um ? S.overlay : null;
   if (ov) { path(ov.um, (u, i) => Y(fold(u, i))); g.setLineDash([5, 4]); g.strokeStyle = T.muted; g.lineWidth = 1.5; g.stroke(); g.setLineDash([]); }
   // sung line, coloured per segment
   const seg = (pts) => { g.lineWidth = 2.5; for (let k = 1; k < pts.length; k++) { const a = pts[k - 1], b = pts[k]; if (isNaN(a.m) || isNaN(b.m) || b.t - a.t > 0.09) continue; if (b.t < t0 - 0.2 || a.t > t1 + 0.2) continue; const i = idxOf(b.t), r = R.midi[i]; const ok = !isNaN(r) && Math.abs(errC(b.m, r)) <= S.set.tol; g.strokeStyle = isNaN(r) ? T.muted : ok ? T.good : T.warn; g.beginPath(); g.moveTo(X(a.t), Y(fold(a.m, idxOf(a.t)))); g.lineTo(X(b.t), Y(fold(b.m, i))); g.stroke(); } };
   const p = S.playing;
   if (p && p.kind === 'take') { if (p.mode !== 'blind') seg(p.live); }
-  else if (S.selected && !S.selected.hidden) { const tk = S.selected, pts = []; for (let i = iA; i <= iB; i++) pts.push({ t: i * HOPS, m: tk.um[i] }); seg(pts); }
+  else if (S.selected && !S.selected.hidden && S.selected.um) { const tk = S.selected, pts = []; for (let i = iA; i <= iB; i++) pts.push({ t: i * HOPS, m: tk.um[i] }); seg(pts); }
   // volume lane
   g.fillStyle = T.muted; g.textAlign = 'left'; g.fillText('VOLUME', 4, volT + 6);
   g.font = `10px ${T.mono}`; g.fillText('louder', 4, volT + 22); g.fillText('softer', 4, volB - 4); g.font = `11px ${T.mono}`;
@@ -769,7 +849,7 @@ function drawDetail() {
   if (p && p.kind === 'take' && p.mode !== 'blind' && p.live.length) {
     const vs = p.live.filter(q => !isNaN(q.m)).map(q => q.db); const um = vs.length > 20 ? median(vs) : null;
     if (um != null) { g.strokeStyle = T.accent; g.lineWidth = 2; g.beginPath(); let pen = false; for (let k = 0; k < p.live.length; k++) { const q = p.live[k]; if (isNaN(q.m) || q.t < t0) { pen = false; continue; } const y = VY(q.db - um), x = X(q.t); pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; } g.stroke(); }
-  } else if (S.selected && !S.selected.hidden && !(p && p.kind === 'take')) {
+  } else if (S.selected && !S.selected.hidden && S.selected.um && !(p && p.kind === 'take')) {
     const tk = S.selected; path(tk.udb, d => VY(d - tk.stats.uMed), i => !isNaN(tk.um[i]) && voiced(i)); g.strokeStyle = T.accent; g.lineWidth = 2; g.stroke();
   }
   // time axis
@@ -840,18 +920,20 @@ function leaning(b) { if (isNaN(b)) return '—'; const r = Math.round(b); retur
 function renderResults() {
   const body = $('#resBody'), meta = $('#resMeta'), t = S.selected;
   if (!t) { meta.textContent = ''; body.innerHTML = '<p class="muted">Sing a take and your measurements appear here: how much was on pitch, which way you lean, whether you follow the volume, and what to drill next.</p>'; return; }
-  meta.textContent = `Take ${t.id} · ${fmtT(t.a)}–${fmtT(t.b)} · ${t.mode === 'blind' ? 'Blind' : 'Guided'}`;
+  meta.textContent = `${t.source === 'example' ? 'Example' : 'Take ' + t.id} · ${fmtT(t.a)}–${fmtT(t.b)} · ${t.mode === 'blind' ? 'Blind' : 'Guided'}`;
   if (t.hidden) {
     body.innerHTML = `<div class="guess"><h3>Before you look: how did it go?</h3>
       <div class="field"><span class="small">Pitch</span><div class="seg" role="group" data-g="pitch"><button data-v="flat">Mostly flat</button><button data-v="on">Mostly on</button><button data-v="sharp">Mostly sharp</button></div></div>
       <div class="field"><span class="small">Volume</span><div class="seg" role="group" data-g="vol"><button data-v="follow">Followed the track</button><button data-v="miss">Didn’t follow</button></div></div>
       <div class="row"><button class="accent" id="btnReveal">Reveal the measurements</button><span class="small muted">Guessing first trains your ear to catch mistakes without the screen.</span></div></div>`;
     body.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; t.guess[sg.dataset.g] = b.dataset.v; sg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
-    $('#btnReveal').addEventListener('click', () => { t.hidden = false; renderResults(); renderTakes(); draw(); setLive('Done', 'Take ' + t.id + ' revealed', ''); });
+    $('#btnReveal').addEventListener('click', () => { t.hidden = false; persistTake(t, false); renderResults(); renderTakes(); draw(); setLive('Done', 'Take ' + t.id + ' revealed', ''); });
     return;
   }
   const st = t.stats, prev = similarTakes(t).filter(o => o !== t && o.id < t.id && !o.hidden).pop();
   let html = '';
+  if (t.events && t.events.length) html += `<div class="events">${t.events.map(e => `<p class="note good">${esc(e)}</p>`).join('')}</div>`;
+  if (t.light) html += `<p class="banner">Saved take from ${esc(relDay(t.created))}. ${t.hasAudio ? 'Load the recording to see your pitch line and hear it again.' : 'The recording isn’t stored on this device, so only the scores are shown.'}${t.hasAudio ? ' <button data-act="hydrate" style="margin-left:6px">Load recording</button>' : ''}</p>`;
   if (t.source === 'example') html += `<p class="banner">This is an example take the app sang to show what feedback looks like. It’s not you. Press <b>Sing a take</b> to record your own.</p>`;
   if (t.source === 'file') html += `<p class="banner">Uploaded recording, assumed to start at ${fmtT(t.a)}. If the lines look shifted, use <b>Align timing</b>.</p>`;
   if (t.alignHint) html += `<div class="note warn"><p>This take looks shifted in time by about ${Math.abs(t.alignHint)} ms, which can make good notes look wrong. <button data-act="align2" style="margin-left:6px">Align timing</button></p></div>`;
@@ -869,12 +951,13 @@ function renderResults() {
   }
   const guidedGood = similarTakes(t).filter(o => o.mode === 'guided' && !o.hidden && o.source !== 'example').slice(-2);
   if (guidedGood.length === 2 && guidedGood.every(o => o.stats.onPitch >= 0.7) && S.set.mode === 'guided') html += `<p class="note good">Two strong guided takes on this passage. Switch to <b>Blind</b>: sing without seeing your line, guess how it went, then check. That’s how the skill moves from the screen to your ear.</p>`;
-  html += `<div class="row"><button data-act="play">Play my take</button><button data-act="playTrack">Play with the track</button>${t.source !== 'example' ? '<button data-act="align" title="Shift your take in time so it lines up with the melody">Align timing</button>' : ''}${prev ? `<span class="small muted">Dashed line on the graph: take ${prev.id}</span>` : ''}</div>`;
+  if (!t.light) html += `<div class="row"><button data-act="play">Play my take</button><button data-act="playTrack">Play with the track</button>${t.source !== 'example' ? '<button data-act="align" title="Shift your take in time so it lines up with the melody">Align timing</button>' : ''}${prev && prev.um ? `<span class="small muted">Dashed line on the graph: take ${prev.id}</span>` : ''}</div>`;
   body.innerHTML = html;
   body.querySelectorAll('[data-drill]').forEach(b => b.addEventListener('click', () => setRegion(st.hints[+b.dataset.drill].drill)));
   body.querySelectorAll('[data-ph]').forEach(b => b.addEventListener('click', () => { const p = st.phrases[+b.dataset.ph]; setRegion({ a: Math.max(0, p.a - 0.3), b: Math.min(S.ref.dur, p.b + 0.3) }); }));
-  body.querySelector('[data-act=play]').addEventListener('click', () => replayTake(t, false));
-  body.querySelector('[data-act=playTrack]').addEventListener('click', () => replayTake(t, true));
+  const pl = body.querySelector('[data-act=play]'); if (pl) pl.addEventListener('click', () => replayTake(t, false));
+  const pt = body.querySelector('[data-act=playTrack]'); if (pt) pt.addEventListener('click', () => replayTake(t, true));
+  const hy = body.querySelector('[data-act=hydrate]'); if (hy) hy.addEventListener('click', async () => { hy.disabled = true; hy.textContent = 'Loading…'; await hydrate(t); renderResults(); renderTakes(); draw(); });
   body.querySelectorAll('[data-act=align],[data-act=align2]').forEach(al => al.addEventListener('click', () => alignTake(t)));
 }
 function bestOffset(t) {
@@ -891,7 +974,7 @@ function alignTake(t) {
   const { best } = bestOffset(t);
   t.alignHint = null;
   const moved = Math.round((best - t.offset) * 1000);
-  t.offset = best; mapTake(t); computeStats(t);
+  t.offset = best; mapTake(t); computeStats(t); persistTake(t, false); renderProgress();
   if (t.source === 'mic') { S.set.offsetMs = clamp(Math.round(best * 1000), -100, 400); saveSettings(); renderSettings(); }
   renderResults(); renderTakes(); draw();
   setLive('Aligned', Math.abs(moved) < 10 ? 'Timing was already right' : `Shifted ${minus(moved)} ms`, t.source === 'mic' ? 'Future takes use this timing correction.' : '', 'good');
@@ -901,8 +984,8 @@ function renderTakes() {
   const best = {}; S.takes.filter(t => !t.hidden && t.source !== 'example').forEach(t => { const k = t.a.toFixed(1) + '-' + t.b.toFixed(1); if (!best[k] || t.stats.onPitch > best[k].stats.onPitch) best[k] = t; });
   const bests = new Set(Object.values(best).filter(t => similarTakes(t).filter(o => o.source !== 'example').length > 1));
   rows.innerHTML = list.length ? list.map(t => `<tr class="${t === S.selected ? 'sel' : ''}"><td>${t.source === 'example' ? '<span class="badge">Example</span>' : 'Take ' + t.id}${bests.has(t) ? ' <span class="badge best">Best</span>' : ''}</td><td class="num">${fmtT(t.a)}–${fmtT(t.b)}</td><td>${t.mode === 'blind' ? 'Blind' : 'Guided'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.onPitch * 100) + '%'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.vol * 100) + '%'}</td><td class="num">${t.hidden ? '?' : leaning(t.stats.bias)}</td><td><div class="row" style="flex-wrap:nowrap"><button class="ghost" data-show="${t.id}">Show</button><button class="ghost" data-cmp="${t.id}">${S.overlay === t ? 'Comparing' : 'Compare'}</button></div></td></tr>`).join('') : `<tr><td colspan="7" class="muted">No takes yet.</td></tr>`;
-  rows.querySelectorAll('[data-show]').forEach(b => b.addEventListener('click', () => { const t = S.takes.find(x => x.id === +b.dataset.show); S.selected = t; if (S.overlay === t) S.overlay = null; S.view.center = (t.a + Math.min(t.b, t.a + S.view.span)) / 2; renderResults(); renderTakes(); draw(); }));
-  rows.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', () => { const t = S.takes.find(x => x.id === +b.dataset.cmp); S.overlay = S.overlay === t ? null : t; renderTakes(); draw(); }));
+  rows.querySelectorAll('[data-show]').forEach(b => b.addEventListener('click', async () => { const t = S.takes.find(x => x.id === +b.dataset.show); if (t.light && t.hasAudio) { b.textContent = 'Loading…'; await hydrate(t); } S.selected = t; if (S.overlay === t) S.overlay = null; S.view.center = (t.a + Math.min(t.b, t.a + S.view.span)) / 2; renderResults(); renderTakes(); draw(); }));
+  rows.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', async () => { const t = S.takes.find(x => x.id === +b.dataset.cmp); if (t.light && t.hasAudio) { b.textContent = 'Loading…'; await hydrate(t); } S.overlay = S.overlay === t ? null : t; renderTakes(); draw(); }));
   // sparkline
   const sv = $('#spark'), pts = S.takes.filter(t => !t.hidden && t.source !== 'example'), W = sv.clientWidth || 600, H = 60;
   if (pts.length < 2) { sv.innerHTML = `<text x="0" y="34" fill="var(--muted)" font-size="13">Your progress line appears after two takes.</text>`; return; }
@@ -922,8 +1005,336 @@ async function rangeTest(which) {
   while (performance.now() < end) { const f = liveFrame(); if (!isNaN(f.midi)) vals.push(f.midi); $('#rangeOut').textContent = `Hold your ${which} note… ${Math.ceil((end - performance.now()) / 1000)} s ${isNaN(f.midi) ? '' : '· ' + noteName(f.midi)}`; await sleep(40); }
   S.busy = false; setButtons();
   if (vals.length < 20) { $('#rangeOut').textContent = 'Didn’t hear a steady note. Try again, a little louder.'; return; }
-  S.range[which] = Math.round(median(vals)); store.set('range', S.range); renderRange(); draw();
+  S.range[which] = Math.round(median(vals)); store.set('range', S.range); if (S.profile) { S.profile.range = { ...S.range }; saveProfile(); } renderRange(); draw();
 }
+
+/* ---------- progress storage ----------
+   Cloud: the artifact's private per-person store (data/users/<id>/profile, with takes and tracks below it).
+   Local: IndexedDB in this browser (standalone file, or when the account store is unavailable).
+   Recordings and track audio always stay in this browser's IndexedDB. */
+const clean = o => JSON.parse(JSON.stringify(o));
+const newUid = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function hashStr(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+function openIDB() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('no indexedDB'));
+    let r; try { r = indexedDB.open('takewise', 1); } catch (e) { return rej(e); }
+    r.onupgradeneeded = () => { const d = r.result; for (const n of ['takes', 'tracks', 'meta', 'blobs']) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); r.onblocked = () => rej(new Error('blocked'));
+  });
+}
+function idbDo(name, mode, fn) {
+  return new Promise((res, rej) => {
+    let tx; try { tx = Store.idb.transaction(name, mode); } catch (e) { return rej(e); }
+    const req = fn(tx.objectStore(name));
+    tx.oncomplete = () => res(req ? req.result : undefined); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+  });
+}
+const Store = {
+  mode: 'memory', idb: null, base: null, err: null,
+  mem: { takes: new Map(), tracks: new Map(), profile: null, blobs: new Map() },
+  async init() {
+    try { this.idb = await openIDB(); } catch (e) { this.idb = null; }
+    let w = 0; while (!(window.claude && window.claude.use) && window.parent !== window && w < 10) { await sleep(100); w++; }
+    if (window.claude && window.claude.use) {
+      try {
+        const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+        const uid = user ? await user.id() : null;
+        if (db && uid) { this.base = db.doc('data/users/' + uid + '/profile'); this.mode = 'cloud'; return; }
+      } catch (e) {}
+    }
+    if (this.idb) this.mode = 'local';
+  },
+  async getProfile() {
+    if (this.mode === 'cloud') { const sn = await this.base.get(); return sn.exists ? clean(sn.data()) : null; }
+    if (this.mode === 'local') return (await idbDo('meta', 'readonly', st => st.get('profile'))) || null;
+    return this.mem.profile;
+  },
+  async saveProfile(p) {
+    p = clean(p);
+    if (this.mode === 'cloud') return this.base.set(p);
+    if (this.mode === 'local') return idbDo('meta', 'readwrite', st => st.put(p, 'profile'));
+    this.mem.profile = p;
+  },
+  async list(coll) {
+    if (this.mode === 'cloud') { const sn = await this.base.collection(coll).limit(1000).get(); return sn.docs.map(d => clean(d.data())); }
+    if (this.mode === 'local') return (await idbDo(coll, 'readonly', st => st.getAll())) || [];
+    return [...this.mem[coll].values()];
+  },
+  async put(coll, id, rec) {
+    rec = clean(rec);
+    if (this.mode === 'cloud') return this.base.collection(coll).doc(id).set(rec);
+    if (this.mode === 'local') return idbDo(coll, 'readwrite', st => st.put(rec, id));
+    this.mem[coll].set(id, rec);
+  },
+  listTakes() { return this.list('takes'); },
+  saveTake(r) { return this.put('takes', r.uid, r); },
+  listTracks() { return this.list('tracks'); },
+  saveTrack(t) { return this.put('tracks', t.id, t); },
+  async putBlob(k, blob) {
+    if (this.idb) { try { await idbDo('blobs', 'readwrite', st => st.put(blob, k)); return true; } catch (e) {} }
+    this.mem.blobs.set(k, blob); return false;
+  },
+  async getBlob(k) {
+    if (this.idb) { try { const b = await idbDo('blobs', 'readonly', st => st.get(k)); if (b) return b; } catch (e) {} }
+    return this.mem.blobs.get(k) || null;
+  },
+  async deleteAll() {
+    if (this.mode === 'cloud') {
+      for (const coll of ['takes', 'tracks']) { const sn = await this.base.collection(coll).limit(1000).get(); for (const d of sn.docs) await this.base.collection(coll).doc(d.id).delete(); }
+      await this.base.delete();
+    }
+    if (this.idb) for (const n of ['takes', 'tracks', 'meta', 'blobs']) { try { await idbDo(n, 'readwrite', st => st.clear()); } catch (e) {} }
+    this.mem = { takes: new Map(), tracks: new Map(), profile: null, blobs: new Map() };
+  }
+};
+function storeFail(e) { Store.err = e || { message: 'unknown' }; renderStatus(); }
+function saveProfile() { if (S.profile) Store.saveProfile(S.profile).catch(storeFail); }
+function renderStatus() {
+  const el = $('#storeStatus'); if (!el) return;
+  const e = Store.err;
+  el.className = 'storestatus ' + (e ? 'warn' : Store.mode);
+  if (e) el.textContent = e.code === 'quota_exceeded' ? 'Your progress storage is full. Export your progress, then delete it to start fresh.' : 'Couldn’t save the latest change. It’s kept until you close this tab; try again later or export your progress.';
+  else el.textContent = Store.mode === 'cloud' ? 'Progress is saved privately to your Claude account. Recordings stay in this browser.'
+    : Store.mode === 'local' ? 'Progress is saved in this browser on this device. Use Export to move it to another browser.'
+    : 'Progress can’t be saved in this view, so it lasts until you close the tab.';
+}
+
+/* ---------- take records ---------- */
+function wavBlob(buf) {
+  const d = buf.getChannelData(0), n = d.length, sr = buf.sampleRate, ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, d[i])); v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+function recordOf(t) {
+  const st = t.stats;
+  return clean({
+    v: 1, uid: t.uid, trackId: t.trackId, trackName: (S.tracksMeta[t.trackId] && S.tracksMeta[t.trackId].name) || (S.ref && S.ref.name) || '',
+    createdAt: t.created, day: dayKey(t.created), a: t.a, b: t.b, mode: t.mode, source: t.source, t0Track: t.t0Track, offset: t.offset,
+    tol: S.set.tol, octFree: S.set.octFree, onPitch: st.onPitch, vol: st.vol, bias: isNaN(st.bias) ? null : st.bias, sung: st.sung,
+    phrases: st.phrases.map(p => ({ a: p.a, b: p.b, onPitch: p.onPitch, vol: p.vol })),
+    hints: st.hints.map(h => ({ key: h.key, tone: h.tone, title: h.title, ev: h.ev, tip: h.tip, drill: h.drill || null })),
+    guess: t.guess || null, hasAudio: !!t.hasAudio, events: t.events || []
+  });
+}
+function fromRecord(r, n) {
+  return {
+    id: n, uid: r.uid, trackId: r.trackId, a: r.a, b: r.b, mode: r.mode, source: r.source, t0Track: r.t0Track, offset: r.offset || 0,
+    created: r.createdAt, guess: r.guess || null, hidden: false, light: true, hasAudio: !!r.hasAudio,
+    stats: { onPitch: r.onPitch, vol: r.vol, bias: r.bias == null ? NaN : r.bias, sung: r.sung, phrases: r.phrases || [], hints: (r.hints || []).map(h => Object.assign({}, h)) }
+  };
+}
+async function persistTake(t, withAudio) {
+  if (withAudio && t.play) t.hasAudio = await Store.putBlob('take:' + t.uid, wavBlob(t.play));
+  const rec = recordOf(t);
+  const k = S.history.findIndex(r => r.uid === rec.uid); if (k >= 0) S.history[k] = rec; else S.history.push(rec);
+  try { await Store.saveTake(rec); if (Store.err) { Store.err = null; renderStatus(); } } catch (e) { storeFail(e); }
+}
+async function hydrate(t) {
+  try {
+    const blob = await Store.getBlob('take:' + t.uid);
+    if (!blob) { t.hasAudio = false; return false; }
+    const buf = await ac().decodeAudioData(await blob.arrayBuffer());
+    t.raw = await analyse(await toSR(buf)); t.play = buf; mapTake(t);
+    const keepEvents = t.events; computeStats(t); t.events = keepEvents; t.light = false; return true;
+  } catch (e) { t.hasAudio = false; return false; }
+}
+function rebuildTrackTakes() {
+  if (!S.ref) return;
+  const byUid = new Map(S.takes.map(t => [t.uid, t])), ex = S.takes.filter(t => t.source === 'example');
+  S.takes = ex.concat(S.history.filter(r => r.trackId === S.ref.id).map((r, k) => { const t = byUid.get(r.uid) || fromRecord(r, 0); t.id = k + 1; return t; }));
+  S.nextTake = S.takes.filter(t => t.source !== 'example').length + 1;
+  if (S.selected && !S.takes.includes(S.selected)) S.selected = S.takes[S.takes.length - 1] || null;
+  if (S.overlay && !S.takes.includes(S.overlay)) S.overlay = null;
+}
+async function loadTrackById(id) {
+  if (id === 'sample') return loadSample();
+  const blob = await Store.getBlob('track:' + id); if (!blob) throw new Error('missing');
+  if (S.playing) stopAll();
+  const buf = await ac().decodeAudioData(await blob.arrayBuffer());
+  await loadReference(buf, (S.tracksMeta[id] && S.tracksMeta[id].name) || 'Track', false, id);
+}
+
+/* ---------- progress facts and nudges ---------- */
+const HABITS = { flatHigh: 'Flat on high notes', sharpHigh: 'Sharp on high notes', scoop: 'Sliding up into notes', overshoot: 'Overshooting note starts', sag: 'Long notes sagging flat', creep: 'Long notes creeping sharp', swell: 'Not following volume changes', push: 'Pushing volume on high notes', flat: 'Leaning flat', sharp: 'Leaning sharp', pickup: 'Voice not picked up clearly' };
+const hasKey = (r, k) => (r.hints || []).some(h => h.key === k);
+function dayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function keyDate(k) { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); }
+function shiftDay(k, n) { const d = keyDate(k); d.setDate(d.getDate() + n); return dayKey(d.getTime()); }
+function dayDiff(a, b) { const u = k => { const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d); }; return Math.round((u(b) - u(a)) / 864e5); }
+function relDay(ts) { const d = dayDiff(dayKey(ts), dayKey(Date.now())); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
+const overlaps = (r, t) => { const ov = Math.min(r.b, t.b) - Math.max(r.a, t.a); return ov > 0.8 * Math.max(r.b - r.a, t.b - t.a); };
+const P = x => Math.round(x * 100);
+const fmtS = t => { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+function facts() {
+  const H = S.history, today = dayKey(Date.now()), days = new Set(H.map(r => r.day));
+  let streak = 0, d = days.has(today) ? today : shiftDay(today, -1); while (days.has(d)) { streak++; d = shiftDay(d, -1); }
+  let longest = 0, run = 0, prev = null; for (const k of [...days].sort()) { run = prev && dayDiff(prev, k) === 1 ? run + 1 : 1; longest = Math.max(longest, run); prev = k; }
+  const todayN = H.filter(r => r.day === today).length, goal = (S.profile && S.profile.goal) || 3, last = H[H.length - 1] || null;
+  return { today, days, streak, longest, todayN, goal, last, gap: last ? dayDiff(last.day, today) : null, activeToday: days.has(today), total: H.length,
+    minutes: H.reduce((s, r) => s + Math.max(0, r.b - r.a), 0) / 60, recent: H.filter(r => Date.now() - r.createdAt < 45 * 60e3).length };
+}
+function weakSpot() {
+  if (!S.ref) return '';
+  const tk = S.history.filter(r => r.trackId === S.ref.id), last = tk[tk.length - 1]; if (!last) return '';
+  const ph = (last.phrases || []).slice().sort((a, b) => a.onPitch - b.onPitch)[0];
+  return ph && ph.onPitch < 0.7 ? ` Your weakest phrase last time was ${fmtS(ph.a)}–${fmtS(ph.b)} at ${P(ph.onPitch)}%; that’s a good one to drill.` : '';
+}
+function nudgeNow() {
+  const f = facts();
+  if (!f.total) return 'Your first take is the hardest one. Pick a short phrase, sing it once, and see what the app hears.';
+  if (f.recent >= 20) return `You’ve sung ${f.recent} takes in the last 45 minutes. Give your voice ten minutes of rest and some water; a tired voice practises mistakes.`;
+  if (f.todayN >= f.goal) return `Today’s goal is done: ${f.todayN} take${f.todayN > 1 ? 's' : ''}.${f.streak > 1 ? ` That’s day ${f.streak} in a row.` : ''} Anything more is a bonus, so stop while your voice still feels fresh.`;
+  if (f.gap >= 2) return `Welcome back. It’s been ${f.gap} days since your last take, so start with one easy take of something you know.` + weakSpot();
+  if (f.activeToday) { const left = f.goal - f.todayN; return `${f.todayN} of ${f.goal} takes today. ${left} more and today’s goal is done.` + weakSpot(); }
+  if (f.streak >= 1) { const gapL = f.longest - f.streak; return `${f.streak === 1 ? 'You practised yesterday.' : `You’re on a ${f.streak}-day streak.`} One take today keeps it going${gapL > 0 && gapL <= 2 ? `, and ${gapL} more day${gapL > 1 ? 's' : ''} ties your longest streak of ${f.longest}` : ''}.` + weakSpot(); }
+  return `New day, fresh voice. ${f.goal} short takes is today’s goal.` + weakSpot();
+}
+function takeEvents(t) {
+  const ev = [], st = t.stats, f0 = facts();
+  const same = S.history.filter(r => r.trackId === t.trackId), sim = same.filter(r => overlaps(r, t));
+  if (!same.length) ev.push(`First take on this track is saved. ${P(st.onPitch)}% on pitch is your baseline to beat.`);
+  else if (sim.length) { const best = Math.max(...sim.map(r => r.onPitch)); if (st.onPitch > best + 0.005) ev.push(`New personal best on this passage: ${P(st.onPitch)}% on pitch, up from ${P(best)}%.`); }
+  if (sim.length >= 3 && st.onPitch - sim[0].onPitch >= 0.1) ev.push(`Since your first take of this passage you’ve gone from ${P(sim[0].onPitch)}% to ${P(st.onPitch)}% on pitch.`);
+  if (f0.todayN + 1 === f0.goal) ev.push(`That completes today’s goal of ${f0.goal} take${f0.goal > 1 ? 's' : ''}.`);
+  if (!f0.activeToday) { const sk = f0.streak + 1; if (sk >= 2) ev.push(sk > f0.longest ? `Day ${sk} in a row, your longest streak so far.` : `Day ${sk} in a row.`); }
+  const keys = new Set(st.hints.map(h => h.key)), recent = sim.slice(-6);
+  for (const k of Object.keys(HABITS)) {
+    if (keys.has(k)) continue;
+    const last2 = recent.slice(-2), earlier = recent.slice(0, -2);
+    if (last2.length === 2 && earlier.filter(r => hasKey(r, k)).length >= 2 && last2.every(r => !hasKey(r, k))) { ev.push(`“${HABITS[k]}” hasn’t shown up in your last 3 takes here. That habit is fading.`); break; }
+  }
+  const last3 = sim.slice(-3);
+  if (last3.length === 3 && !ev.some(e => /best/.test(e))) { const all = last3.map(r => r.onPitch).concat(st.onPitch); if (Math.max(...all) - Math.min(...all) < 0.05 && st.onPitch < 0.85) ev.push(`Four takes in a row around ${P(st.onPitch)}%. Change one thing: drill only the weakest phrase, hum it slowly first, or try a Blind take.`); }
+  return ev.slice(0, 3);
+}
+
+/* ---------- today strip + progress panel ---------- */
+function renderToday() {
+  const f = facts();
+  $('#tStreak').textContent = f.streak;
+  $('#tStreakLbl').textContent = f.streak && !f.activeToday ? 'day streak · sing today to keep it' : f.streak === 1 ? 'day streak' : 'day streak';
+  $('#tGoalTxt').textContent = `${f.todayN} / ${f.goal} takes`;
+  $('#tGoalBar').style.width = Math.min(100, f.todayN / f.goal * 100) + '%';
+  $('#tGoal').classList.toggle('done', f.todayN >= f.goal);
+  $('#tNudge').textContent = nudgeNow();
+  $('#goalVal').textContent = f.goal;
+  renderStatus();
+}
+function renderProgress() {
+  const f = facts();
+  const days = f.days.size;
+  $('#progTiles').innerHTML = tile('Days practised', String(days), null) + tile('Longest streak', f.longest + (f.longest === 1 ? ' day' : ' days'), null) + tile('Time singing', f.minutes < 1 ? Math.round(f.minutes * 60) + ' s' : Math.round(f.minutes) + ' min', null) + tile('Takes', String(f.total), null);
+  renderDays(f);
+  // habits
+  const last10 = S.history.slice(-10), hl = $('#habits');
+  const rows = Object.keys(HABITS).map(k => {
+    const n = last10.filter(r => hasKey(r, k)).length; if (!n) return null;
+    const r3 = last10.slice(-3), e7 = last10.slice(0, -3), n3 = r3.filter(r => hasKey(r, k)).length, n7 = e7.filter(r => hasKey(r, k)).length;
+    const trend = r3.length === 3 && n3 === 0 && n7 > 0 ? ['up', 'Fading'] : e7.length && n3 / r3.length > n7 / e7.length + 0.15 ? ['down', 'More often'] : ['flat', 'Steady'];
+    return { k, n, trend };
+  }).filter(Boolean).sort((a, b) => b.n - a.n).slice(0, 5);
+  hl.innerHTML = rows.length ? rows.map(r => `<div class="li"><span class="name">${esc(HABITS[r.k])}</span><span class="trend ${r.trend[0]}">${r.trend[1]}</span><span class="sub">In ${r.n} of your last ${last10.length} takes</span></div>`).join('')
+    : `<p class="small muted">${S.history.length ? 'No repeated habits in your recent takes. Keep going.' : 'Sing a few takes and the patterns the app hears will collect here.'}</p>`;
+  // tracks
+  const groups = {}; S.history.forEach(r => { (groups[r.trackId] = groups[r.trackId] || []).push(r); });
+  const ids = Object.keys(groups).sort((a, b) => groups[b][groups[b].length - 1].createdAt - groups[a][groups[a].length - 1].createdAt);
+  const tl = $('#tracksList');
+  tl.innerHTML = ids.length ? ids.map(id => {
+    const g = groups[id], last = g[g.length - 1], best = Math.max(...g.map(r => r.onPitch)), name = (S.tracksMeta[id] && S.tracksMeta[id].name) || last.trackName || 'Track';
+    const cur = S.ref && S.ref.id === id, can = id === 'sample' || S.trackBlob[id];
+    const act = cur ? '<span class="small muted">Open now</span>' : can ? `<button data-open="${esc(id)}">Practise</button>` : '<span class="small muted">Upload again to practise</span>';
+    return `<div class="li"><span class="name">${esc(name)}</span>${act}<span class="sub">${g.length} take${g.length > 1 ? 's' : ''} · best ${P(best)}% · latest ${P(last.onPitch)}% · ${relDay(last.createdAt)}</span></div>`;
+  }).join('') : '<p class="small muted">Tracks you practise appear here with your best and latest scores.</p>';
+  tl.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; b.textContent = 'Opening…'; try { await loadTrackById(b.dataset.open); } catch (e) { b.textContent = 'Not on this device'; } }));
+}
+function renderDays(f) {
+  const svg = $('#daysChart'), tip = $('#dayTip'), W = Math.max(320, Math.round(svg.getBoundingClientRect().width) || 600), H = 150, padL = 28, padR = 8, padT = 14, padB = 26;
+  const ds = []; for (let k = 13; k >= 0; k--) { const key = shiftDay(f.today, -k), rs = S.history.filter(r => r.day === key); ds.push({ key, n: rs.length, best: rs.length ? Math.max(...rs.map(r => r.onPitch)) : null }); }
+  const top = Math.ceil(Math.max(f.goal, ...ds.map(d => d.n), 1) * 1.2), bw = (W - padL - padR) / 14, Y = v => padT + (1 - v / top) * (H - padT - padB);
+  let g = `<text x="${padL - 6}" y="${Y(0) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">0</text><line x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)"/>`;
+  g += `<line x1="${padL}" x2="${W - padR}" y1="${Y(f.goal)}" y2="${Y(f.goal)}" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="${padL - 6}" y="${Y(f.goal) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${f.goal}</text>`;
+  ds.forEach((d, i) => {
+    const w = Math.min(28, bw * 0.62), x = padL + i * bw + (bw - w) / 2, y = Y(d.n), today = d.key === f.today;
+    if (d.n > 0) { const r = Math.min(4, w / 2, Y(0) - y); g += `<path d="M${x} ${Y(0)}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + w - r}Q${x + w} ${y} ${x + w} ${y + r}V${Y(0)}Z" fill="var(--accent)" fill-opacity="${d.n >= f.goal ? 1 : 0.45}"/>`; }
+    g += `<text x="${x + w / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${today ? 'var(--ink)' : 'var(--muted)'}" font-weight="${today ? 700 : 400}">${keyDate(d.key).getDate()}</text>`;
+    g += `<rect data-i="${i}" x="${padL + i * bw}" y="${padT}" width="${bw}" height="${H - padT}" fill="transparent"/>`;
+  });
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = g;
+  const wk = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  svg.onpointermove = e => {
+    const i = e.target.dataset ? e.target.dataset.i : undefined; if (i == null) { tip.hidden = true; return; }
+    const d = ds[+i], dt = keyDate(d.key), sx = svg.getBoundingClientRect().width / W;
+    tip.textContent = `${d.key === f.today ? 'Today' : wk[dt.getDay()] + ' ' + dt.getDate() + ' ' + mo[dt.getMonth()]} · ${d.n} take${d.n === 1 ? '' : 's'}${d.best != null ? ' · best ' + P(d.best) + '%' : ''}`;
+    tip.style.left = ((padL + (+i + 0.5) * bw) * sx) + 'px'; tip.style.top = (Y(d.n) - 6) + 'px'; tip.hidden = false;
+  };
+  svg.onpointerleave = () => { tip.hidden = true; };
+}
+function dataMsg(t) { $('#dataMsg').textContent = t; }
+async function exportData() {
+  const data = JSON.stringify({ app: 'takewise', version: 1, exportedAt: new Date().toISOString(), profile: S.profile, tracks: Object.values(S.tracksMeta), takes: S.history }, null, 1);
+  const name = `takewise-progress-${dayKey(Date.now())}.json`;
+  if (window.claude && window.claude.use) {
+    try { const dl = await window.claude.use('downloads'); if (dl) { await dl.save({ filename: name, data }); dataMsg('Progress exported.'); return; } }
+    catch (e) { if (e && e.code === 'declined') { dataMsg('Export cancelled.'); return; } }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); dataMsg(`Exported ${S.history.length} takes as ${name}.`);
+}
+async function importData(file) {
+  let j; try { j = JSON.parse(await file.text()); } catch (e) { j = null; }
+  if (!j || j.app !== 'takewise' || !Array.isArray(j.takes)) { dataMsg('That file isn’t a Takewise progress export.'); return; }
+  for (const t of (Array.isArray(j.tracks) ? j.tracks : [])) if (t && typeof t.id === 'string' && !S.tracksMeta[t.id]) { S.tracksMeta[t.id] = t; await Store.saveTrack(t).catch(storeFail); }
+  const have = new Set(S.history.map(r => r.uid)); let n = 0;
+  for (const r of j.takes) {
+    if (!r || typeof r.uid !== 'string' || have.has(r.uid) || typeof r.onPitch !== 'number' || typeof r.createdAt !== 'number') continue;
+    r.hasAudio = false; r.day = dayKey(r.createdAt); S.history.push(r); n++;
+    try { await Store.saveTake(r); } catch (e) { storeFail(e); break; }
+  }
+  S.history.sort((a, b) => a.createdAt - b.createdAt);
+  if (j.profile && typeof j.profile.goal === 'number' && S.profile && !S.history.length) { S.profile.goal = clamp(j.profile.goal, 1, 10); saveProfile(); }
+  rebuildTrackTakes(); renderTakes(); renderResults(); renderToday(); renderProgress(); draw();
+  dataMsg(n ? `Imported ${n} take${n === 1 ? '' : 's'}. Recordings aren’t part of an export, so imported takes show scores only.` : 'Nothing new to import; those takes are already here.');
+}
+function askDelete() {
+  const w = $('#delWrap'), where = Store.mode === 'cloud' ? 'your Claude account and this browser' : 'this browser';
+  w.innerHTML = `<span class="confirm"><span>Delete every take, streak and saved track from ${where}? This can’t be undone.</span><button class="danger" id="delYes">Delete everything</button><button class="ghost" id="delNo">Cancel</button></span>`;
+  $('#delNo').addEventListener('click', resetDelete);
+  $('#delYes').addEventListener('click', async () => {
+    $('#delYes').disabled = true; $('#delYes').textContent = 'Deleting…';
+    try { await Store.deleteAll(); } catch (e) { storeFail(e); }
+    S.history = []; S.tracksMeta = {}; S.trackBlob = {};
+    S.takes = S.takes.filter(t => t.source === 'example'); S.selected = S.takes[0] || null; S.overlay = null; S.nextTake = 1;
+    S.profile = { goal: (S.profile && S.profile.goal) || 3, createdAt: Date.now(), lastTrackId: S.ref ? S.ref.id : 'sample', range: S.range };
+    saveProfile();
+    if (S.ref) { const m = { id: S.ref.id, name: S.ref.name, dur: S.ref.dur, sample: !!S.ref.sample, addedAt: Date.now() }; S.tracksMeta[m.id] = m; Store.saveTrack(m).catch(storeFail); }
+    resetDelete(); renderTakes(); renderResults(); renderToday(); renderProgress(); draw(); dataMsg('All progress deleted.');
+  });
+}
+function resetDelete() { $('#delWrap').innerHTML = '<button class="ghost danger" id="btnDelete">Delete all progress</button>'; $('#btnDelete').addEventListener('click', askDelete); }
+
+async function startup() {
+  await Store.init();
+  try { S.profile = await Store.getProfile(); } catch (e) { storeFail(e); }
+  if (!S.profile) { S.profile = { goal: 3, createdAt: Date.now(), lastTrackId: 'sample', range: S.range }; saveProfile(); }
+  if (S.profile.range && S.profile.range.low != null) S.range = Object.assign({}, S.profile.range);
+  try { S.history = (await Store.listTakes()).filter(r => r && r.uid && typeof r.createdAt === 'number').sort((a, b) => a.createdAt - b.createdAt); } catch (e) { storeFail(e); }
+  try { (await Store.listTracks()).forEach(t => { if (t && t.id) S.tracksMeta[t.id] = t; }); } catch (e) {}
+  for (const id of Object.keys(S.tracksMeta)) if (id !== 'sample') S.trackBlob[id] = !!(await Store.getBlob('track:' + id));
+  renderRange(); renderToday(); renderProgress();
+  const last = S.profile.lastTrackId;
+  if (last && last !== 'sample' && S.trackBlob[last]) { try { await loadTrackById(last); return; } catch (e) {} }
+  await loadSample();
+  if (last && last !== 'sample' && !S.trackBlob[last] && S.tracksMeta[last]) $('#tNudge').textContent = `Your last track, “${S.tracksMeta[last].name}”, isn’t stored on this device. Upload it again to pick up where you left off; your scores are kept.`;
+}
+$('#goalDown').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) - 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
+$('#goalUp').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) + 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
+$('#btnExport').addEventListener('click', exportData);
+$('#fileImport').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
+$('#btnDelete').addEventListener('click', askDelete);
 
 /* ---------- wiring ---------- */
 $('#btnTake').addEventListener('click', () => { if (!S.set.phones) setLive('Tip', 'Headphones?', 'Without headphones the mic also hears the track. Tick the box in Settings when you wear them.'); startTake(); });
@@ -934,9 +1345,9 @@ $('#btnHigh').addEventListener('click', () => rangeTest('high'));
 $('#btnClearRegion').addEventListener('click', () => { S.region = null; renderRegion(); draw(); });
 $('#zoomIn').addEventListener('click', () => { S.view.span = clamp(S.view.span / 1.5, 2, 60); draw(); });
 $('#zoomOut').addEventListener('click', () => { S.view.span = clamp(S.view.span * 1.5, 2, 60); draw(); });
-$('#segTol').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.set.tol = +b.dataset.v; saveSettings(); renderSettings(); S.takes.forEach(computeStats); renderResults(); renderTakes(); draw(); });
+$('#segTol').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.set.tol = +b.dataset.v; saveSettings(); renderSettings(); S.takes.forEach(t => { if (t.um) computeStats(t); }); renderResults(); renderTakes(); draw(); });
 $('#segMode').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.set.mode = b.dataset.v; saveSettings(); renderSettings(); renderResults(); });
-$('#chkOct').addEventListener('change', e => { S.set.octFree = e.target.checked; saveSettings(); S.takes.forEach(computeStats); renderRange(); renderResults(); renderTakes(); draw(); });
+$('#chkOct').addEventListener('change', e => { S.set.octFree = e.target.checked; saveSettings(); S.takes.forEach(t => { if (t.um) computeStats(t); }); renderRange(); renderResults(); renderTakes(); draw(); });
 $('#chkPhones').addEventListener('change', e => { S.set.phones = e.target.checked; saveSettings(); });
 $('#chkSelf').addEventListener('change', e => { S.set.hearSelf = e.target.checked; saveSettings(); renderSettings(); if (S.mic) S.mic.mon.gain.value = S.set.hearSelf ? S.set.selfVol : 0; });
 $('#rngSelf').addEventListener('input', e => { S.set.selfVol = +e.target.value; saveSettings(); renderSettings(); if (S.mic && S.set.hearSelf) S.mic.mon.gain.value = S.set.selfVol; });
@@ -945,7 +1356,13 @@ $('#rngOff').addEventListener('input', e => { S.set.offsetMs = +e.target.value; 
 $('#fileTrack').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   if (S.playing) stopAll();
-  try { const buf = await ac().decodeAudioData(await f.arrayBuffer()); await loadReference(buf, f.name.replace(/\.[^.]+$/, ''), false); }
+  try {
+    const bytes = await f.arrayBuffer(), name = f.name.replace(/\.[^.]+$/, '');
+    const buf = await ac().decodeAudioData(bytes.slice(0));
+    const id = 'trk-' + hashStr(name + '|' + buf.duration.toFixed(1));
+    Store.putBlob('track:' + id, new Blob([bytes], { type: f.type || 'audio/mpeg' })).then(ok => { S.trackBlob[id] = ok; renderProgress(); });
+    await loadReference(buf, name, false, id);
+  }
   catch (err) { setLive('Error', 'Couldn’t read that file', 'Use an MP3, WAV, M4A or OGG audio file.', 'warn'); }
 });
 $('#fileTake').addEventListener('change', async e => {
@@ -960,12 +1377,12 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); S.playing ? stopAll() : startListen(); }
   if (e.key === 'r' || e.key === 'R') { e.preventDefault(); if (!S.playing) startTake(); }
 });
-let rz = 0; window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => { draw(); renderTakes(); }); });
+let rz = 0; window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => { draw(); renderTakes(); renderProgress(); }); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
 new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 renderSettings(); renderRegion(); renderRange(); renderResults(); renderTakes(); setButtons();
-loadSample().catch(err => { console.error(err); setLive('Error', 'Couldn’t build the sample', 'Upload an MP3 to start.', 'warn'); });
+startup().catch(err => { console.error(err); setLive('Error', 'Couldn’t start', 'Reload the page, or upload an MP3 to start.', 'warn'); });
 window.__takewise = S;
 })();
 </script>
