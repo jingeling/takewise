@@ -22,7 +22,7 @@ Each version is its own commit on `main`, so you can return to any of them:
 
 | Version | Commit | What changed |
 | --- | --- | --- |
-| v5 | see latest commit | Progress is saved to a folder on your computer and survives clearing browser data. |
+| v5 | `97fd04b` | Progress is saved to a folder on your computer and survives clearing browser data. |
 | v4 | `5425f1b` | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
 | v3 | `bad08fb` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
 | v2 | `b1fb452` | Progress tracking: saved takes, streaks, daily goal, nudges, habits and per-track scores. |
