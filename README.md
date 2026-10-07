@@ -16,7 +16,7 @@ Each version is its own commit on `main`, so you can return to any of them:
 
 | Version | Commit | What changed |
 | --- | --- | --- |
-| v4 | see latest commit | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
+| v4 | `5425f1b` | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
 | v3 | `bad08fb` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
 | v2 | `b1fb452` | Progress tracking: saved takes, streaks, daily goal, nudges, habits and per-track scores. |
 | v1 | `c1413f0` | Upload a track, sing takes, pitch and volume feedback, targeted drills, blind mode. |
