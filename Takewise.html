@@ -156,7 +156,8 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .chartwrap{position:relative;overflow-x:auto}
 .days{width:100%;height:150px;display:block;min-width:320px}
 .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12.5px;border-radius:6px;padding:5px 8px;white-space:nowrap;transform:translate(-50%,-100%)}
-.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.grid2 > .field{align-content:start}
 @media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
 .list{display:grid;gap:0}
 .li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
@@ -175,6 +176,8 @@ tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .flash{animation:flash 1.2s ease}
 @keyframes flash{0%,100%{box-shadow:0 0 0 0 transparent}30%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 30%,transparent)}}
 .storestatus button{padding:3px 10px;font-size:12.5px}
+.adv summary{cursor:pointer;color:var(--muted)}
+.adv[open] summary{margin-bottom:10px}
 button.danger{color:var(--rec)}
 .confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
 [hidden]{display:none!important}
@@ -314,7 +317,7 @@ button.danger{color:var(--rec)}
         </div>
         <div class="grid2">
           <div class="field"><h3>Habits the app keeps hearing</h3><p class="small muted">Across your last 10 takes, all tracks.</p><div class="list" id="habits"></div></div>
-          <div class="field"><h3>Your tracks</h3><p class="small muted">Best and latest on-pitch score per track.</p><div class="list" id="tracksList"></div></div>
+          <div class="field"><h3>Your tracks</h3><p class="small muted">Switch tracks here. Scores show your best and latest take.</p><div class="list" id="tracksList"></div></div>
         </div>
         <div class="datarow">
           <div class="field"><h3>Backup</h3><p class="small muted" id="backupInfo">Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer.</p>
@@ -329,10 +332,11 @@ button.danger{color:var(--rec)}
       <section class="panel" aria-labelledby="h-set">
         <header><h2 id="h-set">Settings</h2></header>
         <div class="field">
-          <div class="head"><span class="small">On-pitch zone</span><span class="small muted">width of the grey band</span></div>
-          <div class="seg" role="group" aria-label="On-pitch zone" id="segTol">
-            <button data-v="25">Strict ±25¢</button><button data-v="50">Normal ±50¢</button><button data-v="100">Relaxed ±100¢</button>
+          <div class="head"><span class="small">How close counts as on pitch</span></div>
+          <div class="seg" role="group" aria-label="How close counts as on pitch" id="segTol">
+            <button data-v="25">Strict</button><button data-v="50">Normal</button><button data-v="100">Relaxed</button>
           </div>
+          <span class="small muted" id="tolHint"></span>
         </div>
         <label class="check"><input type="checkbox" id="chkOct"><span>Any octave counts<br><span class="small muted">Sing the melody an octave lower or higher if that suits your voice.</span></span></label>
         <label class="check"><input type="checkbox" id="chkPhones"><span>I'm wearing headphones<br><span class="small muted">Without them the mic hears the track as well as you.</span></span></label>
@@ -345,11 +349,12 @@ button.danger{color:var(--rec)}
           <div class="head"><label class="small" for="rngSelf">My voice volume</label><span class="small mono" id="valSelf"></span></div>
           <input type="range" id="rngSelf" min="0" max="1" step="0.05">
         </div>
+        <details class="adv"><summary class="small">Advanced</summary>
         <div class="field">
           <div class="head"><label class="small" for="rngOff">Timing correction</label><span class="small mono" id="valOff"></span></div>
           <input type="range" id="rngOff" min="-100" max="400" step="5">
-          <span class="small muted">Compensates for audio delay in your device. Use “Align timing” after a take to set it.</span>
-        </div>
+          <span class="small muted">Makes up for sound delay in your device. You rarely need this: press “Align timing” after a take and it’s set for you.</span>
+        </div></details>
       </section>
     </aside>
   </div>
@@ -362,7 +367,9 @@ const $ = s => document.querySelector(s);
 const SR = 11025, HOP = 256, WIN = 512, TMIN = Math.floor(SR / 1100), TMAX = Math.ceil(SR / 65), HOPS = HOP / SR;
 const NOTE = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const noteName = m => { const r = Math.round(m); return NOTE[((r % 12) + 12) % 12] + (Math.floor(r / 12) - 1); };
+const fmtS = t => { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
 const fmtT = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+const fmtR = (a, b) => { const x = Math.max(0, Math.floor(a)), y = Math.max(x + 1, Math.ceil(b)); return fmtS(x) + '–' + fmtS(y); };
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const minus = n => (n < 0 ? '−' : n > 0 ? '+' : '') + Math.abs(n);
@@ -461,10 +468,6 @@ async function loadReference(buffer, name, sample, trackId) {
   const R = Object.assign({ name, buffer, dur: buffer.duration, sample, clarity: sounding ? pitched / sounding : 0, mLo: lo5, mHi: hi95, dbMed: median(vdb) }, A);
   const span = Math.max(12, (hi95 - lo5) + 5), mid = (hi95 + lo5) / 2;
   R.lo = isNaN(mid) ? 55 : mid - span / 2; R.hi = isNaN(mid) ? 72 : mid + span / 2;
-  // phrases: voiced runs merged across gaps up to 0.25 s
-  const ph = []; let cur = null;
-  for (let i = 0; i < A.n; i++) { if (isNaN(A.midi[i])) continue; if (cur && i - cur.i1 <= 11) cur.i1 = i; else { cur = { i0: i, i1: i }; ph.push(cur); } }
-  R.phrases = ph.filter(p => (p.i1 - p.i0) * HOPS >= 0.3);
   // notes: split voiced runs on pitch jumps
   const notes = [];
   for (let i = 0; i < A.n;) {
@@ -477,6 +480,20 @@ async function loadReference(buffer, name, sample, trackId) {
     notes.push({ i0: s, i1: i }); i++;
   }
   R.notes = notes.filter(nt => (nt.i1 - nt.i0) * HOPS >= 0.15).map(nt => { const v = []; for (let k = nt.i0; k <= nt.i1; k++) v.push(A.midi[k]); nt.m = median(v); return nt; });
+  // phrases: voiced runs merged across gaps up to 0.25 s, then long ones cut at note starts into chunks of about 4-8 s
+  const ph = []; let cur = null;
+  for (let i = 0; i < A.n; i++) { if (isNaN(A.midi[i])) continue; if (cur && i - cur.i1 <= 11) cur.i1 = i; else { cur = { i0: i, i1: i }; ph.push(cur); } }
+  const chunks = [];
+  for (const p of ph) {
+    if ((p.i1 - p.i0) * HOPS <= 8) { chunks.push(p); continue; }
+    let start = p.i0;
+    for (const nt of R.notes) {
+      if (nt.i0 <= start || nt.i0 > p.i1) continue;
+      if ((nt.i0 - start) * HOPS >= 4 && (p.i1 - nt.i0) * HOPS >= 2.5) { chunks.push({ i0: start, i1: nt.i0 - 1 }); start = nt.i0; }
+    }
+    chunks.push({ i0: start, i1: p.i1 });
+  }
+  R.phrases = chunks.filter(p => (p.i1 - p.i0) * HOPS >= 0.3);
   R.id = trackId || 'sample';
   S.ref = R; S.selected = null; S.overlay = null; S.region = null; S.cursor = 0;
   S.takes = S.history.filter(r => r.trackId === R.id).map((r, k) => fromRecord(r, k + 1));
@@ -535,6 +552,7 @@ async function addTake(o) {
   const raw = await analyse(o.x);
   const take = Object.assign({ id: o.source === 'example' ? 0 : S.nextTake++, uid: newUid(), trackId: S.ref.id, raw, created: Date.now() }, o);
   mapTake(take); computeStats(take);
+  if (o.autoAlign) { const b = bestOffset(take, o.autoAlign); if (b.bestE < b.curE * 0.8) { take.offset = b.best; mapTake(take); computeStats(take); } }
   if (o.source !== 'example') { const b = bestOffset(take); if (Math.abs(b.best - take.offset) > 0.06 && b.bestE < b.curE * 0.7) take.alignHint = Math.round((b.best - take.offset) * 1000); }
   S.takes.push(take);
   if (o.mode === 'blind' && o.source !== 'example') { take.hidden = true; take.guess = {}; }
@@ -593,10 +611,10 @@ function diagnose(take) {
       const bh = median(hiE), bl = median(loE);
       if (hiE.length > 10 && bh < -20 && bh - bl < -15) {
         const worst = notes.filter(n => n.m >= thr).sort((a, b) => median(noteSeg(take, a, 0.15)) - median(noteSeg(take, b, 0.15)))[0];
-        out.push({ key: 'flatHigh', tone: 'warn', title: `Flat on the high notes, ${c(bh)} cents under`, ev: `Your lower notes sit at ${minus(Math.round(bl))} cents; from ${noteName(thr)} upward you drop to ${minus(Math.round(bh))}.`, tip: 'Keep the airflow steady as you go up, and think of the high note as forward and easy rather than reaching up with your chin. Hear the note in your head before you sing it.', drill: worst && phraseAround(worst.i0) });
+        out.push({ key: 'flatHigh', tone: 'warn', title: 'Flat on the high notes', ev: `Your lower notes sit at ${minus(Math.round(bl))} cents; from ${noteName(thr)} upward you drop to ${minus(Math.round(bh))}.`, tip: 'Keep the airflow steady as you go up, and think of the high note as forward and easy rather than reaching up with your chin. Hear the note in your head before you sing it.', drill: worst && phraseAround(worst.i0) });
       } else if (hiE.length > 10 && bh > 20 && bh - bl > 15) {
         const worst = notes.filter(n => n.m >= thr)[0];
-        out.push({ key: 'sharpHigh', tone: 'warn', title: `Sharp on the high notes, ${c(bh)} cents over`, ev: `From ${noteName(thr)} upward you land ${c(bh)} cents high, while lower notes sit at ${minus(Math.round(bl))}.`, tip: 'Pushing often makes high notes sharp. Sing them a little softer and let the pitch settle.', drill: worst && phraseAround(worst.i0) });
+        out.push({ key: 'sharpHigh', tone: 'warn', title: 'Sharp on the high notes', ev: `From ${noteName(thr)} upward you land ${c(bh)} cents high, while lower notes sit at ${minus(Math.round(bl))}.`, tip: 'Pushing often makes high notes sharp. Sing them a little softer and let the pitch settle.', drill: worst && phraseAround(worst.i0) });
       }
     }
   }
@@ -642,7 +660,7 @@ function diagnose(take) {
     if (hu.length > 10 && lu.length > 10 && du - dr > 6) out.push({ key: 'push', tone: 'warn', title: 'Pushing volume on high notes', ev: `You get ${Math.round(du - dr)} dB louder on the high notes than the track does.`, tip: 'Volume is not what makes a high note work. Try the passage at a comfortable medium volume all the way through.', drill: null });
   }
   // overall leaning
-  if (!out.some(h => /high notes/.test(h.title)) && Math.abs(st.bias) >= 25) out.push({ key: (st.bias < 0 ? 'flat' : 'sharp'), tone: 'warn', title: st.bias < 0 ? `Leaning flat overall, ${c(st.bias)} cents` : `Leaning sharp overall, ${c(st.bias)} cents`, ev: 'The whole passage sits on the same side of the target.', tip: st.bias < 0 ? 'Listen to the first note of each phrase before you sing it, and imagine the pitch slightly higher.' : 'Relax and sing a touch softer; imagine the pitch slightly lower.', drill: null });
+  if (!out.some(h => /high notes/.test(h.title)) && Math.abs(st.bias) >= 25) out.push({ key: (st.bias < 0 ? 'flat' : 'sharp'), tone: 'warn', title: st.bias < 0 ? 'Singing slightly flat overall' : 'Singing slightly sharp overall', ev: `The whole passage sits about ${c(st.bias)} cents ${st.bias < 0 ? 'under' : 'over'} the target.`, tip: st.bias < 0 ? 'Listen to the first note of each phrase before you sing it, and imagine the pitch slightly higher.' : 'Relax and sing a touch softer; imagine the pitch slightly lower.', drill: null });
   if (!out.length && st.onPitch >= 0.6) out.push({ key: 'clean', tone: 'good', title: 'No clear pattern of mistakes', ev: `${Math.round(st.onPitch * 100)}% on pitch and no consistent leaning.`, tip: 'Narrow the on-pitch zone to Strict, or try a Blind take to check your ear without the line.', drill: null });
   if (!out.length) out.push({ key: 'mixed', tone: 'info', title: 'Misses without one clear cause', ev: 'Your pitch varies on both sides of the target.', tip: 'Pick the weakest passage below, slow down, and sing it a few times in a row.', drill: null });
   return out.slice(0, 3);
@@ -721,7 +739,7 @@ async function startTake() {
 }
 async function finishTake() {
   const p = S.playing; if (!p || p.kind !== 'take' || p.finishing) return;
-  p.finishing = true; p.rec.stop(); await sleep(250);
+  p.finishing = true; p.endAt = S.ctx.currentTime; p.rec.stop(); await sleep(250);
   S.playing = null; setButtons(); $('#countIn').textContent = '';
   const ctx = S.ctx, len = p.rec.chunks.reduce((s, c) => s + c.length, 0);
   if (len < ctx.sampleRate * 0.5 || p.rec.t0 == null) { setLive('Too short', 'That take was too short to analyse.', '', 'warn'); draw(); return; }
@@ -729,7 +747,7 @@ async function finishTake() {
   const play = ctx.createBuffer(1, len, ctx.sampleRate); play.copyToChannel(pcm, 0);
   setLive('Analysing', 'Measuring your take…', '');
   const x = await toSR(play);
-  const take = await addTake({ source: 'mic', x, play, t0Track: p.a + (p.rec.t0 - p.startAt), offset: (S.set.offsetMs || 0) / 1000, a: p.a, b: Math.min(p.b, p.a + (ctx.currentTime - p.startAt)), mode: p.mode, noise: p.noise });
+  const take = await addTake({ source: 'mic', x, play, t0Track: p.a + (p.rec.t0 - p.startAt), offset: (S.set.offsetMs || 0) / 1000, a: p.a, b: Math.min(p.b, p.a + (p.endAt - p.startAt)), mode: p.mode, noise: p.noise });
   if (take.hidden) setLive('Your guess', 'Blind take recorded', 'Before you look: how do you think it went?');
   else setLive('Done', 'Take ' + take.id + ' measured', 'See what to work on below.', 'good');
   $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
@@ -788,7 +806,7 @@ function loop() {
           else if (isNaN(r)) setLive('Recording', 'No target here', '', 'rec');
           else { const e = errC(f.midi, r); if (Math.abs(e) <= S.set.tol) setLive('On', 'On pitch', noteName(r), 'good'); else setLive('Off', `${Math.round(Math.abs(e))}¢ ${e < 0 ? 'flat' : 'sharp'}`, e < 0 ? '↑ go up' : '↓ come down', 'warn'); }
         }
-      } else setLive('Count-in', 'Get ready', 'Starting at ' + fmtT(p.a), 'rec');
+      } else setLive('Count-in', 'Get ready', 'Starting at ' + fmtS(p.a) + (S.set.phones ? '' : ' · Headphones keep the track out of your recording'), 'rec');
     }
     if (pos > S.view.center + S.view.span * 0.2 || pos < S.view.center - S.view.span / 2) S.view.center = pos + S.view.span * 0.2;
     draw();
@@ -889,12 +907,12 @@ function drawDetail() {
   c.addEventListener('pointerup', e => { if (!drag) return; if (!drag.moved) { S.cursor = drag.a; S.region = null; S.view.center = drag.a + S.view.span * 0.3; renderRegion(); } else if (S.region.b - S.region.a < 0.5) { S.region = null; renderRegion(); } drag = null; draw(); });
   $('#detail').addEventListener('click', e => { if (!S.ref || S.playing) return; const r = e.currentTarget.getBoundingClientRect(); const t0 = S.view.center - S.view.span / 2; const t = t0 + (e.clientX - r.left - 46) / (r.width - 56) * S.view.span; if (t >= 0 && t <= S.ref.dur && !S.region) { S.cursor = t; renderRegion(); draw(); } });
 })();
-function setRegion(r) { if (!r) return; S.region = { a: r.a, b: r.b }; S.view.span = clamp(r.b - r.a + 1, 3, 40); S.view.center = (r.a + r.b) / 2; renderRegion(); draw(); $('.stage').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); setLive('Passage set', 'Passage ready', 'Sing a take to drill ' + fmtT(r.a) + '–' + fmtT(r.b) + '.'); }
+function setRegion(r) { if (!r) return; S.region = { a: r.a, b: r.b }; S.view.span = clamp(r.b - r.a + 1, 3, 40); S.view.center = (r.a + r.b) / 2; renderRegion(); draw(); $('.stage').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); setLive('Passage set', 'Passage ready', 'Press Sing a take to practise ' + fmtR(r.a, r.b) + '.'); }
 
 /* ---------- rendering panels ---------- */
 function renderTrack() {
   const R = S.ref; $('#trackName').textContent = R.name;
-  $('#trackMeta').textContent = `${fmtT(R.dur)} · melody ${isNaN(R.mLo) ? '—' : noteName(R.mLo) + '–' + noteName(R.mHi)}`;
+  $('#trackMeta').textContent = `${fmtS(R.dur)} · melody ${isNaN(R.mLo) ? '—' : noteName(R.mLo) + '–' + noteName(R.mHi)}`;
   const c = Math.round(R.clarity * 100); $('#clarityVal').textContent = c + '%';
   const bar = $('#clarityBar'); bar.style.width = c + '%'; bar.style.background = c >= 60 ? 'var(--good)' : 'var(--warn)';
   const n = $('#trackNote');
@@ -918,11 +936,12 @@ function renderRange() {
 }
 function renderRegion() {
   const t = $('#regionText'), b = $('#btnClearRegion');
-  if (S.region) { t.textContent = `Passage ${fmtT(S.region.a)}–${fmtT(S.region.b)}`; b.hidden = false; }
-  else { t.textContent = S.cursor > 0.05 ? `From ${fmtT(S.cursor)} to the end` : 'Whole track'; b.hidden = true; }
+  if (S.region) { t.textContent = `Passage ${fmtR(S.region.a, S.region.b)}`; b.hidden = false; }
+  else { t.textContent = S.cursor > 0.05 ? `From ${fmtS(S.cursor)} to the end` : 'Whole track'; b.hidden = true; }
 }
 function renderSettings() {
   document.querySelectorAll('#segTol button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.set.tol)));
+  $('#tolHint').textContent = ({ 25: 'Within a quarter of a piano-key step. For confident singers.', 50: 'Within half a piano-key step. A good place to start.', 100: 'Within a whole piano-key step. Gentle while you warm up.' })[S.set.tol] + ' It’s the width of the grey band.';
   document.querySelectorAll('#segMode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.set.mode)));
   $('#chkOct').checked = S.set.octFree; $('#chkPhones').checked = S.set.phones; $('#chkSelf').checked = S.set.hearSelf;
   $('#rngTrack').value = S.set.trackVol; $('#valTrack').textContent = Math.round(S.set.trackVol * 100) + '%';
@@ -930,15 +949,15 @@ function renderSettings() {
   $('#rngOff').value = S.set.offsetMs ?? 60; $('#valOff').textContent = S.set.offsetMs == null ? 'auto' : S.set.offsetMs + ' ms';
 }
 
-function tile(label, value, delta, unit) {
-  const d = delta == null || isNaN(delta) ? '' : `<span class="delta ${delta >= 0 ? 'up' : 'down'}">${minus(Math.round(delta))}${unit} vs last</span>`;
+function tile(label, value, delta, unit, sub) {
+  const d = sub ? `<span class="small muted">${sub}</span>` : delta == null || isNaN(delta) ? '' : `<span class="delta ${delta >= 0 ? 'up' : 'down'}">${minus(Math.round(delta))}${unit} vs last</span>`;
   return `<div class="tile"><span class="label">${label}</span><b>${value}</b>${d}</div>`;
 }
-function leaning(b) { if (isNaN(b)) return '—'; const r = Math.round(b); return Math.abs(r) < 10 ? 'Centred' : `${Math.abs(r)}¢ ${r < 0 ? 'flat' : 'sharp'}`; }
+function leaning(b) { if (isNaN(b)) return '—'; const a = Math.abs(b), w = b < 0 ? 'flat' : 'sharp'; return a < 10 ? 'Centred' : a < 25 ? 'A touch ' + w : a < 60 ? w[0].toUpperCase() + w.slice(1) : 'Very ' + w; }
 function renderResults() {
   const body = $('#resBody'), meta = $('#resMeta'), t = S.selected;
   if (!t) { meta.textContent = ''; body.innerHTML = '<p class="muted">Sing a take and your measurements appear here: how much was on pitch, which way you lean, whether you follow the volume, and what to drill next.</p>'; return; }
-  meta.textContent = `${t.source === 'example' ? 'Example' : 'Take ' + t.id} · ${fmtT(t.a)}–${fmtT(t.b)} · ${t.mode === 'blind' ? 'Blind' : 'Guided'}`;
+  meta.textContent = `${t.source === 'example' ? 'Example' : 'Take ' + t.id} · ${fmtR(t.a, t.b)} · ${t.mode === 'blind' ? 'Blind' : 'Guided'}`;
   if (t.hidden) {
     body.innerHTML = `<div class="guess"><h3>Before you look: how did it go?</h3>
       <div class="field"><span class="small">Pitch</span><div class="seg" role="group" data-g="pitch"><button data-v="flat">Mostly flat</button><button data-v="on">Mostly on</button><button data-v="sharp">Mostly sharp</button></div></div>
@@ -953,9 +972,9 @@ function renderResults() {
   if (t.events && t.events.length) html += `<div class="events">${t.events.map(e => `<p class="note good">${esc(e)}</p>`).join('')}</div>`;
   if (t.light) html += `<p class="banner">Saved take from ${esc(relDay(t.created))}. ${t.hasAudio ? 'Load the recording to see your pitch line and hear it again.' : 'The recording isn’t stored on this device, so only the scores are shown.'}${t.hasAudio ? ' <button data-act="hydrate" style="margin-left:6px">Load recording</button>' : ''}</p>`;
   if (t.source === 'example') html += `<p class="banner">This is an example take the app sang to show what feedback looks like. It’s not you. Press <b>Sing a take</b> to record your own.</p>`;
-  if (t.source === 'file') html += `<p class="banner">Uploaded recording, assumed to start at ${fmtT(t.a)}. If the lines look shifted, use <b>Align timing</b>.</p>`;
+  if (t.source === 'file') html += `<p class="banner">Uploaded recording, lined up with the track automatically. If your line still looks shifted, press <b>Align timing</b>.</p>`;
   if (t.alignHint) html += `<div class="note warn"><p>This take looks shifted in time by about ${Math.abs(t.alignHint)} ms, which can make good notes look wrong. <button data-act="align2" style="margin-left:6px">Align timing</button></p></div>`;
-  html += `<div class="tiles">${tile('On pitch', Math.round(st.onPitch * 100) + '%', prev ? (st.onPitch - prev.stats.onPitch) * 100 : null, ' pts')}${tile('Leaning', leaning(st.bias), null)}${tile('Volume follows', Math.round(st.vol * 100) + '%', prev ? (st.vol - prev.stats.vol) * 100 : null, ' pts')}${tile('Melody sung', Math.round(st.sung * 100) + '%', null)}</div>`;
+  html += `<div class="tiles">${tile('On pitch', Math.round(st.onPitch * 100) + '%', prev ? (st.onPitch - prev.stats.onPitch) * 100 : null, ' pts')}${tile('Leaning', leaning(st.bias), null, '', isNaN(st.bias) || Math.abs(st.bias) < 10 ? 'right on the note' : Math.round(Math.abs(st.bias)) + ' cents ' + (st.bias < 0 ? 'under' : 'over'))}${tile('Volume follows', Math.round(st.vol * 100) + '%', prev ? (st.vol - prev.stats.vol) * 100 : null, ' pts')}${tile('Melody sung', Math.round(st.sung * 100) + '%', null)}</div>`;
   if (t.guess && (t.guess.pitch || t.guess.vol)) {
     const meas = Math.abs(st.bias) < 15 ? 'on' : st.bias < 0 ? 'flat' : 'sharp', mv = st.vol >= 0.6 ? 'follow' : 'miss';
     const lines = [];
@@ -963,9 +982,9 @@ function renderResults() {
     if (t.guess.vol) lines.push(t.guess.vol === mv ? 'Your volume guess was right.' : `You guessed you ${t.guess.vol === 'follow' ? 'followed' : 'didn’t follow'} the volume; you ${mv === 'follow' ? 'did follow it' : 'mostly didn’t'}.`);
     html += `<p class="note ${lines.every(l => /right/.test(l)) ? 'good' : 'warn'}">${lines.join(' ')}</p>`;
   }
-  html += `<h3>What to work on</h3><div class="hints">` + st.hints.map((h, k) => `<div class="hint ${h.tone}"><div><p><b>${esc(h.title)}</b></p><p class="small">${esc(h.ev)}</p><p class="try">Try: ${esc(h.tip)}</p></div>${h.drill ? `<button data-drill="${k}">Drill ${fmtT(h.drill.a)}–${fmtT(h.drill.b)}</button>` : ''}</div>`).join('') + `</div>`;
+  html += `<div class="field"><h3>What to work on</h3><p class="small muted">Pitch is measured in cents: 100 cents is the step between two neighbouring piano keys.</p></div><div class="hints">` + st.hints.map((h, k) => `<div class="hint ${h.tone}"><div><p><b>${esc(h.title)}</b></p><p class="small">${esc(h.ev)}</p><p class="try">Try: ${esc(h.tip)}</p></div>${h.drill ? `<button data-drill="${k}">Drill ${fmtR(h.drill.a, h.drill.b)}</button>` : ''}</div>`).join('') + `</div>`;
   if (st.phrases.length > 1) {
-    html += `<div class="field"><div class="head"><h3>Phrase by phrase</h3><span class="small muted">Tap a phrase to drill it</span></div><div class="phrases">` + st.phrases.map((p, k) => `<button class="phr" data-ph="${k}" title="${fmtT(p.a)}–${fmtT(p.b)}: ${Math.round(p.onPitch * 100)}% on pitch"><i style="height:${Math.max(4, Math.round(p.onPitch * 44))}px;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i><span>${Math.round(p.onPitch * 100)}%</span></button>`).join('') + `</div></div>`;
+    html += `<div class="field"><div class="head"><h3>Phrase by phrase</h3><span class="small muted">Tap a phrase to drill it</span></div><div class="phrases">` + st.phrases.map((p, k) => `<button class="phr" data-ph="${k}" title="${fmtR(p.a, p.b)}: ${Math.round(p.onPitch * 100)}% on pitch"><i style="height:${Math.max(4, Math.round(p.onPitch * 44))}px;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i><span>${Math.round(p.onPitch * 100)}%</span></button>`).join('') + `</div></div>`;
   }
   const guidedGood = similarTakes(t).filter(o => o.mode === 'guided' && !o.hidden && o.source !== 'example').slice(-2);
   if (guidedGood.length === 2 && guidedGood.every(o => o.stats.onPitch >= 0.7) && S.set.mode === 'guided') html += `<p class="note good">Two strong guided takes on this passage. Switch to <b>Blind</b>: sing without seeing your line, guess how it went, then check. That’s how the skill moves from the screen to your ear.</p>`;
@@ -978,9 +997,9 @@ function renderResults() {
   const hy = body.querySelector('[data-act=hydrate]'); if (hy) hy.addEventListener('click', async () => { hy.disabled = true; hy.textContent = 'Loading…'; await hydrate(t); renderResults(); renderTakes(); draw(); });
   body.querySelectorAll('[data-act=align],[data-act=align2]').forEach(al => al.addEventListener('click', () => alignTake(t)));
 }
-function bestOffset(t) {
+function bestOffset(t, span = 0.35) {
   const R = S.ref, i0 = idxOf(t.a), i1 = idxOf(t.b); let best = t.offset, bestE = Infinity, curE = Infinity;
-  for (let o = t.offset - 0.35; o <= t.offset + 0.35; o += HOPS) {
+  for (let o = t.offset - span; o <= t.offset + span; o += HOPS) {
     const shift = t.t0Track - o; let s = 0, n = 0;
     for (let i = i0; i <= i1; i++) { if (!voiced(i)) continue; const j = Math.round((i * HOPS - shift) / HOPS); if (j < 0 || j >= t.raw.n) continue; const u = t.raw.midi[j]; if (isNaN(u)) continue; s += Math.min(300, Math.abs(errC(u, R.midi[i]))); n++; }
     if (n > 20 && s / n < bestE) { bestE = s / n; best = o; }
@@ -1001,7 +1020,7 @@ function renderTakes() {
   const rows = $('#takeRows'), list = S.takes.slice().reverse();
   const best = {}; S.takes.filter(t => !t.hidden && t.source !== 'example').forEach(t => { const k = t.a.toFixed(1) + '-' + t.b.toFixed(1); if (!best[k] || t.stats.onPitch > best[k].stats.onPitch) best[k] = t; });
   const bests = new Set(Object.values(best).filter(t => similarTakes(t).filter(o => o.source !== 'example').length > 1));
-  rows.innerHTML = list.length ? list.map(t => `<tr class="${t === S.selected ? 'sel' : ''}"><td>${t.source === 'example' ? '<span class="badge">Example</span>' : 'Take ' + t.id}${bests.has(t) ? ' <span class="badge best">Best</span>' : ''}</td><td class="num">${fmtT(t.a)}–${fmtT(t.b)}</td><td>${t.mode === 'blind' ? 'Blind' : 'Guided'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.onPitch * 100) + '%'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.vol * 100) + '%'}</td><td class="num">${t.hidden ? '?' : leaning(t.stats.bias)}</td><td><div class="row" style="flex-wrap:nowrap"><button class="ghost" data-show="${t.id}">Show</button><button class="ghost" data-cmp="${t.id}">${S.overlay === t ? 'Comparing' : 'Compare'}</button></div></td></tr>`).join('') : `<tr><td colspan="7" class="muted">No takes yet.</td></tr>`;
+  rows.innerHTML = list.length ? list.map(t => `<tr class="${t === S.selected ? 'sel' : ''}"><td>${t.source === 'example' ? '<span class="badge">Example</span>' : 'Take ' + t.id}${bests.has(t) ? ' <span class="badge best" title="Your best take of this exact passage">Passage best</span>' : ''}</td><td class="num">${fmtR(t.a, t.b)}</td><td>${t.mode === 'blind' ? 'Blind' : 'Guided'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.onPitch * 100) + '%'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.vol * 100) + '%'}</td><td class="num">${t.hidden ? '?' : leaning(t.stats.bias)}</td><td><div class="row" style="flex-wrap:nowrap"><button class="ghost" data-show="${t.id}">Show</button><button class="ghost" data-cmp="${t.id}">${S.overlay === t ? 'Comparing' : 'Compare'}</button></div></td></tr>`).join('') : `<tr><td colspan="7" class="muted">No takes yet.</td></tr>`;
   rows.querySelectorAll('[data-show]').forEach(b => b.addEventListener('click', async () => { const t = S.takes.find(x => x.id === +b.dataset.show); if (t.light && t.hasAudio) { b.textContent = 'Loading…'; await hydrate(t); } S.selected = t; if (S.overlay === t) S.overlay = null; S.view.center = (t.a + Math.min(t.b, t.a + S.view.span)) / 2; renderResults(); renderTakes(); draw(); }));
   rows.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', async () => { const t = S.takes.find(x => x.id === +b.dataset.cmp); if (t.light && t.hasAudio) { b.textContent = 'Loading…'; await hydrate(t); } S.overlay = S.overlay === t ? null : t; renderTakes(); draw(); }));
   // sparkline
@@ -1028,9 +1047,8 @@ async function rangeTest(which) {
 }
 
 /* ---------- progress storage ----------
-   Cloud: the artifact's private per-person store (data/users/<id>/profile, with takes and tracks below it).
-   Local: IndexedDB in this browser (standalone file, or when the account store is unavailable).
-   Recordings and track audio always stay in this browser's IndexedDB. */
+   Everything is saved on this computer: IndexedDB in the browser (localStorage if IndexedDB is unavailable).
+   In the Claude preview nothing is saved; the downloaded app is the one home for progress. */
 const clean = o => JSON.parse(JSON.stringify(o));
 const newUid = () => 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 function hashStr(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
@@ -1189,7 +1207,6 @@ function dayDiff(a, b) { const u = k => { const [y, m, d] = k.split('-').map(Num
 function relDay(ts) { const d = dayDiff(dayKey(ts), dayKey(Date.now())); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; }
 const overlaps = (r, t) => { const ov = Math.min(r.b, t.b) - Math.max(r.a, t.a); return ov > 0.8 * Math.max(r.b - r.a, t.b - t.a); };
 const P = x => Math.round(x * 100);
-const fmtS = t => { t = Math.max(0, Math.round(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
 function facts() {
   const H = S.history, today = dayKey(Date.now()), days = new Set(H.map(r => r.day));
   let streak = 0, d = days.has(today) ? today : shiftDay(today, -1); while (days.has(d)) { streak++; d = shiftDay(d, -1); }
@@ -1202,11 +1219,11 @@ function weakSpot() {
   if (!S.ref) return '';
   const tk = S.history.filter(r => r.trackId === S.ref.id), last = tk[tk.length - 1]; if (!last) return '';
   const ph = (last.phrases || []).slice().sort((a, b) => a.onPitch - b.onPitch)[0];
-  return ph && ph.onPitch < 0.7 ? ` Your weakest phrase last time was ${fmtS(ph.a)}–${fmtS(ph.b)} at ${P(ph.onPitch)}%; that’s a good one to drill.` : '';
+  return ph && ph.onPitch < 0.7 ? ` Your weakest phrase last time was ${fmtR(ph.a, ph.b)} at ${P(ph.onPitch)}%; that’s a good one to drill.` : '';
 }
 function nudgeNow() {
   const f = facts();
-  if (!f.total) return 'Your first take is the hardest one. Pick a short phrase, sing it once, and see what the app hears.';
+  if (!f.total) return 'Start here: put on headphones, press Listen once, then press Sing a take. To begin small, drag across the strip under the buttons to pick a short passage.';
   if (f.recent >= 20) return `You’ve sung ${f.recent} takes in the last 45 minutes. Give your voice ten minutes of rest and some water; a tired voice practises mistakes.`;
   if (f.todayN >= f.goal) return `Today’s goal is done: ${f.todayN} take${f.todayN > 1 ? 's' : ''}.${f.streak > 1 ? ` That’s day ${f.streak} in a row.` : ''} Anything more is a bonus, so stop while your voice still feels fresh.`;
   if (f.gap >= 2) return `Welcome back. It’s been ${f.gap} days since your last take, so start with one easy take of something you know.` + weakSpot();
@@ -1264,13 +1281,16 @@ function renderProgress() {
     : `<p class="small muted">${S.history.length ? 'No repeated habits in your recent takes. Keep going.' : 'Sing a few takes and the patterns the app hears will collect here.'}</p>`;
   // tracks
   const groups = {}; S.history.forEach(r => { (groups[r.trackId] = groups[r.trackId] || []).push(r); });
-  const ids = Object.keys(groups).sort((a, b) => groups[b][groups[b].length - 1].createdAt - groups[a][groups[a].length - 1].createdAt);
+  const lastAt = id => groups[id] ? groups[id][groups[id].length - 1].createdAt : ((S.tracksMeta[id] && S.tracksMeta[id].addedAt) || 0);
+  if (!S.tracksMeta.sample) S.tracksMeta.sample = { id: 'sample', name: 'Sample: five-note scale with a swell', sample: true, addedAt: 0 };
+  const ids = [...new Set([...Object.keys(S.tracksMeta), ...Object.keys(groups)])].sort((a, b) => (a === 'sample') - (b === 'sample') || lastAt(b) - lastAt(a));
   const tl = $('#tracksList');
   tl.innerHTML = ids.length ? ids.map(id => {
-    const g = groups[id], last = g[g.length - 1], best = Math.max(...g.map(r => r.onPitch)), name = (S.tracksMeta[id] && S.tracksMeta[id].name) || last.trackName || 'Track';
+    const g = groups[id] || [], last = g[g.length - 1], name = (S.tracksMeta[id] && S.tracksMeta[id].name) || (last && last.trackName) || 'Track';
     const cur = S.ref && S.ref.id === id, can = id === 'sample' || S.trackBlob[id];
     const act = cur ? '<span class="small muted">Open now</span>' : can ? `<button data-open="${esc(id)}">Practise</button>` : '<span class="small muted">Upload again to practise</span>';
-    return `<div class="li"><span class="name">${esc(name)}</span>${act}<span class="sub">${g.length} take${g.length > 1 ? 's' : ''} · best ${P(best)}% · latest ${P(last.onPitch)}% · ${relDay(last.createdAt)}</span></div>`;
+    const sub = g.length ? `${g.length} take${g.length > 1 ? 's' : ''} · best ${P(Math.max(...g.map(r => r.onPitch)))}% · latest ${P(last.onPitch)}% · ${relDay(last.createdAt)}` : 'No takes yet';
+    return `<div class="li"><span class="name">${esc(name)}</span>${act}<span class="sub">${sub}</span></div>`;
   }).join('') : '<p class="small muted">Tracks you practise appear here with your best and latest scores.</p>';
   tl.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; b.textContent = 'Opening…'; try { await loadTrackById(b.dataset.open); } catch (e) { b.textContent = 'Not on this device'; } }));
 }
@@ -1352,6 +1372,7 @@ async function getApp() {
     await dl.save({ filename: 'Takewise.html', data: await res.blob() });
     msg.textContent = 'Downloaded. Open Takewise.html from your Downloads folder in Chrome or Edge.';
   } catch (e) {
+    if (!(window.claude && window.claude.use)) { msg.textContent = 'Save this file to your computer, then open it in Chrome or Edge to sing.'; btn.disabled = false; btn.textContent = 'Download Takewise'; return; }
     msg.textContent = e && e.code === 'declined' ? 'Download cancelled.' : e && e.code === 'rate_limited' ? 'A download is already waiting for your OK.' : 'Downloading isn’t available here. Ask Claude in the chat for the Takewise file.';
   }
   btn.disabled = false; btn.textContent = 'Download Takewise';
@@ -1382,7 +1403,7 @@ $('#fileImport').addEventListener('change', e => { const f = e.target.files[0]; 
 $('#btnDelete').addEventListener('click', askDelete);
 
 /* ---------- wiring ---------- */
-$('#btnTake').addEventListener('click', () => { if (!S.set.phones && !HOSTED) setLive('Tip', 'Headphones?', 'Without headphones the mic also hears the track. Tick the box in Settings when you wear them.'); startTake(); });
+$('#btnTake').addEventListener('click', startTake);
 $('#btnListen').addEventListener('click', startListen);
 $('#btnStop').addEventListener('click', stopAll);
 $('#btnLow').addEventListener('click', () => rangeTest('low'));
@@ -1413,7 +1434,7 @@ $('#fileTrack').addEventListener('change', async e => {
 $('#fileTake').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f || !S.ref) return;
   try { const buf = await ac().decodeAudioData(await f.arrayBuffer()); setLive('Analysing', 'Measuring your take…', ''); const x = await toSR(buf); const { a, b } = effRegion();
-    const tk = await addTake({ source: 'file', x, play: buf, t0Track: a, offset: 0, a, b: Math.min(b, a + buf.duration), mode: S.set.mode });
+    const tk = await addTake({ source: 'file', x, play: buf, t0Track: a, offset: 0, a, b: Math.min(b, a + buf.duration), mode: S.set.mode, autoAlign: 4 });
     setLive('Done', tk.hidden ? 'Blind take uploaded' : 'Take ' + tk.id + ' measured', '', 'good'); }
   catch (err) { setLive('Error', 'Couldn’t read that recording', 'Use an MP3, WAV, M4A or OGG audio file.', 'warn'); }
 });
