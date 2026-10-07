@@ -320,8 +320,8 @@ button.danger{color:var(--rec)}
           <div class="field"><h3>Your tracks</h3><p class="small muted">Switch tracks here. Scores show your best and latest take.</p><div class="list" id="tracksList"></div></div>
         </div>
         <div class="datarow">
-          <div class="field"><h3>Backup</h3><p class="small muted" id="backupInfo">Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer.</p>
-            <div class="row"><button id="btnExport">Save a backup</button><label class="btn">Restore a backup<input type="file" id="fileImport" accept=".json,application/json"></label></div></div>
+          <div class="field"><h3>Where your progress is kept</h3><p class="small muted" id="backupInfo">Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer.</p>
+            <div class="row"><button id="btnFolder" hidden>Choose progress folder</button><button id="btnExport">Save a backup</button><label class="btn">Restore a backup<input type="file" id="fileImport" accept=".json,application/json"></label></div></div>
           <div class="row" id="delWrap"><button class="ghost danger" id="btnDelete">Delete all progress</button></div>
         </div>
         <p class="small muted" id="dataMsg" aria-live="polite"></p>
@@ -499,8 +499,8 @@ async function loadReference(buffer, name, sample, trackId) {
   S.takes = S.history.filter(r => r.trackId === R.id).map((r, k) => fromRecord(r, k + 1));
   S.nextTake = S.takes.length + 1;
   if (S.takes.length) { S.selected = S.takes[S.takes.length - 1]; S.overlay = S.takes.length > 1 ? S.takes[S.takes.length - 2] : null; }
-  const meta = { id: R.id, name, dur: R.dur, mLo: isNaN(R.mLo) ? null : R.mLo, mHi: isNaN(R.mHi) ? null : R.mHi, clarity: R.clarity, sample: !!sample, addedAt: (S.tracksMeta[R.id] && S.tracksMeta[R.id].addedAt) || Date.now() };
-  S.tracksMeta[R.id] = meta; Store.saveTrack(meta).catch(storeFail);
+  const meta = Object.assign({}, S.tracksMeta[R.id], { id: R.id, name, dur: R.dur, mLo: isNaN(R.mLo) ? null : R.mLo, mHi: isNaN(R.mHi) ? null : R.mHi, clarity: R.clarity, sample: !!sample, addedAt: (S.tracksMeta[R.id] && S.tracksMeta[R.id].addedAt) || Date.now() });
+  S.tracksMeta[R.id] = meta; Store.saveTrack(meta).catch(storeFail); saveFolderSoon();
   if (S.profile && S.profile.lastTrackId !== R.id) { S.profile.lastTrackId = R.id; saveProfile(); }
   S.view.span = Math.min(12, Math.max(4, R.dur)); S.view.center = S.view.span / 2;
   renderTrack(); renderRange(); renderRegion(); renderTakes(); renderResults(); setButtons(); draw();
@@ -723,6 +723,7 @@ function showMicHelp(err) {
 /* ---------- transport ---------- */
 async function startTake() {
   if (HOSTED) { showGetApp(); return; }
+  if (Folder.state === 'needs-ok' && !S.playing && !S.busy) await allowFolder();
   if (!S.ref || S.playing || S.busy) return;
   let m; try { m = await ensureMic(); } catch (e) { showMicHelp(e); return; }
   const ctx = ac(); await ctx.resume();
@@ -1030,7 +1031,7 @@ function renderTakes() {
   const d = pts.map((t, k) => (k ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(t.stats.onPitch).toFixed(1)).join(' ');
   const last = pts[pts.length - 1];
   sv.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  sv.innerHTML = `<line x1="12" x2="${W - 48}" y1="${Y(0.7)}" y2="${Y(0.7)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="${W - 44}" y="${Y(0.7) + 4}" font-size="11" fill="var(--muted)">70%</text><path d="${d} L${X(pts.length - 1)} ${Y(0)} L${X(0)} ${Y(0)} Z" fill="var(--accent)" opacity=".1"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>${pts.map((t, k) => `<circle cx="${X(k)}" cy="${Y(t.stats.onPitch)}" r="${t === last ? 4 : 2.5}" fill="var(--accent)"/>`).join('')}<text x="${X(pts.length - 1) + 8}" y="${Y(last.stats.onPitch) - 6}" font-size="12" font-weight="700" fill="var(--ink)">${Math.round(last.stats.onPitch * 100)}%</text>`;
+  sv.innerHTML = `<line x1="12" x2="${W - 48}" y1="${Y(0.7)}" y2="${Y(0.7)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="14" y="${Y(0.7) - 4}" font-size="11" fill="var(--muted)">70%</text><path d="${d} L${X(pts.length - 1)} ${Y(0)} L${X(0)} ${Y(0)} Z" fill="var(--accent)" opacity=".1"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>${pts.map((t, k) => `<circle cx="${X(k)}" cy="${Y(t.stats.onPitch)}" r="${t === last ? 4 : 2.5}" fill="var(--accent)"/>`).join('')}<text x="${X(pts.length - 1) + 8}" y="${Y(last.stats.onPitch) - 6}" font-size="12" font-weight="700" fill="var(--ink)">${Math.round(last.stats.onPitch * 100)}%</text>`;
 }
 
 /* ---------- range test ---------- */
@@ -1111,7 +1112,10 @@ const Store = {
   },
   async getBlob(k) {
     if (this.idb) { try { const b = await idbDo('blobs', 'readonly', st => st.get(k)); if (b) return b; } catch (e) {} }
-    return this.mem.blobs.get(k) || null;
+    if (this.mem.blobs.get(k)) return this.mem.blobs.get(k);
+    const f = await folderBlob(k);
+    if (f && this.idb) { try { await idbDo('blobs', 'readwrite', st => st.put(f, k)); } catch (e) {} }
+    return f;
   },
   async deleteAll() {
     for (const k of ['profile', 'takes', 'tracks']) { try { localStorage.removeItem(LS + k); } catch (e) {} }
@@ -1120,20 +1124,27 @@ const Store = {
   }
 };
 function storeFail(e) { Store.err = e || { message: 'unknown' }; renderStatus(); }
-function saveProfile() { if (S.profile) Store.saveProfile(S.profile).catch(storeFail); }
+function saveProfile() { if (!S.profile) return; S.profile.updatedAt = Date.now(); Store.saveProfile(S.profile).catch(storeFail); saveFolderSoon(); }
 function renderStatus() {
   const el = $('#storeStatus'); if (!el) return;
-  const e = Store.err, saving = Store.mode === 'local' || Store.mode === 'ls';
-  el.className = 'storestatus ' + (e || !saving ? 'warn' : 'local');
-  let html;
-  if (e) html = e.code === 'quota_exceeded' ? 'There’s no room left to save on this computer. Save a backup, then delete old progress to continue.' : 'Your last take couldn’t be saved. Save a backup now so nothing is lost.';
-  else if (!saving) html = 'This browser won’t let Takewise save. Open the file in Chrome or Edge to keep your progress.';
-  else html = 'Saved automatically on this computer.' + (backupDue() ? ' It’s been a while since your last backup.' : '');
-  el.innerHTML = esc(html) + ((e || (saving && backupDue())) ? ' <button id="btnBackupNow">Save a backup</button>' : '');
-  const b = $('#btnBackupNow'); if (b) b.addEventListener('click', exportData);
+  const e = Store.err, saving = Store.mode === 'local' || Store.mode === 'ls', fs = Folder.state, nm = esc(Folder.name);
+  let html = '', tone = 'local', btn = '';
+  if (e) { tone = 'warn'; html = e.code === 'quota_exceeded' ? 'There’s no room left to save in this browser. Save a backup, then delete old progress to continue.' : 'Your last take couldn’t be saved in this browser.'; btn = fs === 'connected' ? '' : '<button data-st="backup">Save a backup</button>'; if (fs === 'connected') html += ` It is still saved in your folder “${nm}”.`; }
+  else if (Folder.err && fs === 'connected') { tone = 'warn'; html = `Couldn’t write to your folder “${nm}”. Check that it still exists, or choose it again.`; btn = '<button data-st="choose">Choose folder</button>'; }
+  else if (fs === 'connected') html = `Saved to your folder “${nm}” on this computer, so clearing browser data can’t erase it.`;
+  else if (fs === 'needs-ok') { tone = 'warn'; html = `Your progress folder “${nm}” needs your OK to keep saving there.`; btn = '<button data-st="allow">Allow</button>'; }
+  else if (fs === 'none') { tone = 'warn'; html = S.history.length ? 'Saved in this browser only. Choose a folder so your progress stays safe, even if you clear browser data.' : 'Choose a folder to keep your progress safe, for example the Takewise folder on your Desktop. Did you clear your browser? Choose that same folder to bring your history back.'; btn = '<button data-st="choose">Choose folder</button>'; }
+  else if (!saving) { tone = 'warn'; html = 'This browser won’t let Takewise save. Open the file in Chrome or Edge to keep your progress.'; }
+  else { html = 'Saved in this browser. To keep it safe even if you clear browser data, open Takewise in Chrome or Edge.' + (backupDue() ? ' It’s been a while since your last backup.' : ''); if (backupDue()) btn = '<button data-st="backup">Save a backup</button>'; }
+  el.className = 'storestatus ' + tone;
+  el.innerHTML = html + (btn ? ' ' + btn : '');
+  const b = el.querySelector('button');
+  if (b) b.addEventListener('click', () => ({ backup: exportData, choose: chooseFolder, allow: allowFolder })[b.dataset.st]());
+  const fb = $('#btnFolder'); if (fb) { fb.hidden = !Folder.supported; fb.textContent = fs === 'connected' ? 'Change folder' : 'Choose progress folder'; }
 }
 function backupDue() {
   const H = S.history, last = S.profile && S.profile.lastBackup;
+  if (Folder.state === 'connected') return false;
   if (H.length < 10) return false;
   if (!last) return true;
   return Date.now() - last > 14 * 864e5 && H.some(r => r.createdAt > last);
@@ -1167,10 +1178,15 @@ function fromRecord(r, n) {
   };
 }
 async function persistTake(t, withAudio) {
-  if (withAudio && t.play) t.hasAudio = await Store.putBlob('take:' + t.uid, wavBlob(t.play));
+  if (withAudio && t.play) {
+    const inBrowser = await Store.putBlob('take:' + t.uid, wavBlob(t.play));
+    t.hasAudio = inBrowser || Folder.state === 'connected';
+    const play = t.play; Folder.run(async () => Folder.write('recordings/' + t.uid + '.wav', await compactWav(play)));
+  }
   const rec = recordOf(t);
   const k = S.history.findIndex(r => r.uid === rec.uid); if (k >= 0) S.history[k] = rec; else S.history.push(rec);
   try { await Store.saveTake(rec); if (Store.err) { Store.err = null; renderStatus(); } } catch (e) { storeFail(e); }
+  saveFolderSoon();
 }
 async function hydrate(t) {
   try {
@@ -1195,6 +1211,135 @@ async function loadTrackById(id) {
   if (S.playing) stopAll();
   const buf = await ac().decodeAudioData(await blob.arrayBuffer());
   await loadReference(buf, (S.tracksMeta[id] && S.tracksMeta[id].name) || 'Track', false, id);
+}
+
+/* ---------- progress folder ----------
+   A real folder on this computer (Chrome and Edge). Survives clearing cookies and site data.
+   Inside the folder the user picks: "Takewise data/takewise-progress.json", "recordings/", "tracks/".
+   IndexedDB stays as the fast working copy; the folder is the lasting copy. */
+const DATA_DIR = 'Takewise data', PROGRESS_FILE = 'takewise-progress.json';
+const Folder = {
+  supported: !HOSTED && typeof window.showDirectoryPicker === 'function',
+  root: null, dir: null, name: '', state: 'none', queue: Promise.resolve(), timer: 0, err: null,
+  async init() {
+    if (!this.supported) { this.state = 'unsupported'; return; }
+    let h = null; try { if (Store.idb) h = await idbDo('meta', 'readonly', st => st.get('folder')); } catch (e) {}
+    if (!h) { this.state = 'none'; return; }
+    this.root = h; this.name = h.name;
+    let p = 'prompt'; try { p = await h.queryPermission({ mode: 'readwrite' }); } catch (e) {}
+    if (p === 'granted') { try { await this.open(); } catch (e) { this.state = 'needs-ok'; } } else this.state = 'needs-ok';
+  },
+  async open() {
+    let d = this.root;
+    if (this.root.name !== DATA_DIR) {
+      let direct = false; try { await this.root.getFileHandle(PROGRESS_FILE); direct = true; } catch (e) {}
+      if (!direct) d = await this.root.getDirectoryHandle(DATA_DIR, { create: true });
+    }
+    this.dir = d; this.state = 'connected'; this.err = null;
+  },
+  async rememberHandle() { try { if (Store.idb) await idbDo('meta', 'readwrite', st => st.put(this.root, 'folder')); } catch (e) {} },
+  async choose() {
+    const h = await window.showDirectoryPicker({ id: 'takewise', mode: 'readwrite', startIn: 'desktop' });
+    this.root = h; this.name = h.name; await this.rememberHandle(); await this.open();
+  },
+  async reconnect() {
+    let p = 'denied'; try { p = await this.root.requestPermission({ mode: 'readwrite' }); } catch (e) {}
+    if (p !== 'granted') return false;
+    await this.open(); return true;
+  },
+  async walk(path, create) {
+    const parts = path.split('/'), name = parts.pop(); let d = this.dir;
+    for (const p of parts) d = await d.getDirectoryHandle(p, { create });
+    return { d, name };
+  },
+  async readFile(path) { try { const { d, name } = await this.walk(path, false); return await (await d.getFileHandle(name)).getFile(); } catch (e) { return null; } },
+  async write(path, data) { const { d, name } = await this.walk(path, true); const w = await (await d.getFileHandle(name, { create: true })).createWritable(); await w.write(data); await w.close(); },
+  async remove(name, recursive) { try { await this.dir.removeEntry(name, { recursive: !!recursive }); } catch (e) {} },
+  run(fn) {
+    if (this.state !== 'connected') return Promise.resolve();
+    this.queue = this.queue.then(fn).then(() => { if (this.err) { this.err = null; renderStatus(); } }).catch(e => { this.err = e || {}; if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) this.state = 'needs-ok'; renderStatus(); });
+    return this.queue;
+  }
+};
+function progressDoc() { return { app: 'takewise', version: 1, savedAt: new Date().toISOString(), profile: S.profile, settings: S.set, tracks: Object.values(S.tracksMeta), takes: S.history }; }
+function saveFolderSoon() {
+  if (Folder.state !== 'connected') return;
+  clearTimeout(Folder.timer);
+  Folder.timer = setTimeout(() => Folder.run(() => Folder.write(PROGRESS_FILE, JSON.stringify(progressDoc(), null, 1))), 300);
+}
+async function compactWav(buf) {
+  try {
+    const sr = 22050, oc = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * sr)), sr);
+    const s = oc.createBufferSource(); s.buffer = buf; s.connect(oc.destination); s.start();
+    return wavBlob(await oc.startRendering());
+  } catch (e) { return wavBlob(buf); }
+}
+const safeName = n => (String(n).replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'track');
+function saveTrackToFolder(id, blob, ext) {
+  const meta = S.tracksMeta[id]; if (!meta) return;
+  meta.file = `tracks/${safeName(meta.name)} ${id.slice(4)}${ext || '.mp3'}`;
+  Store.saveTrack(meta).catch(storeFail);
+  Folder.run(() => Folder.write(meta.file, blob)); saveFolderSoon();
+}
+async function folderBlob(k) {
+  if (Folder.state !== 'connected') return null;
+  if (k.startsWith('take:')) return Folder.readFile('recordings/' + k.slice(5) + '.wav');
+  if (k.startsWith('track:')) { const m = S.tracksMeta[k.slice(6)]; return m && m.file ? Folder.readFile(m.file) : null; }
+  return null;
+}
+// Merge the folder's copy with this browser's copy, then write the result back to both.
+async function syncFolder() {
+  if (Folder.state !== 'connected') return 0;
+  const f = await Folder.readFile(PROGRESS_FILE); let data = null;
+  if (f) { try { data = JSON.parse(await f.text()); } catch (e) { data = null; } }
+  let added = 0;
+  if (data && data.app === 'takewise') {
+    const fresh = !S.history.length;
+    for (const t of (Array.isArray(data.tracks) ? data.tracks : [])) if (t && typeof t.id === 'string' && (!S.tracksMeta[t.id] || (t.file && !S.tracksMeta[t.id].file))) { S.tracksMeta[t.id] = Object.assign({}, S.tracksMeta[t.id], t); await Store.saveTrack(S.tracksMeta[t.id]).catch(storeFail); }
+    const have = new Set(S.history.map(r => r.uid));
+    for (const r of (Array.isArray(data.takes) ? data.takes : [])) {
+      if (!r || typeof r.uid !== 'string' || have.has(r.uid) || typeof r.onPitch !== 'number' || typeof r.createdAt !== 'number') continue;
+      S.history.push(r); added++; await Store.saveTake(r).catch(storeFail);
+    }
+    S.history.sort((a, b) => a.createdAt - b.createdAt);
+    if (data.profile && (fresh || (data.profile.updatedAt || 0) > ((S.profile && S.profile.updatedAt) || 0))) {
+      S.profile = Object.assign({}, S.profile, data.profile); await Store.saveProfile(S.profile).catch(storeFail);
+      if (S.profile.range && S.profile.range.low != null) { S.range = Object.assign({}, S.profile.range); store.set('range', S.range); }
+    }
+    if (fresh && data.settings && typeof data.settings === 'object') { Object.assign(S.set, data.settings); saveSettings(); renderSettings(); }
+  }
+  await Folder.run(() => Folder.write(PROGRESS_FILE, JSON.stringify(progressDoc(), null, 1)));
+  // copy recordings and tracks that only exist in this browser into the folder
+  Folder.run(async () => {
+    for (const r of S.history) {
+      if (!r.hasAudio || await Folder.readFile('recordings/' + r.uid + '.wav')) continue;
+      let b = null; try { if (Store.idb) b = await idbDo('blobs', 'readonly', st => st.get('take:' + r.uid)); } catch (e) {}
+      if (b) { try { await Folder.write('recordings/' + r.uid + '.wav', await compactWav(await ac().decodeAudioData(await b.arrayBuffer()))); } catch (e) {} }
+    }
+    for (const id of Object.keys(S.tracksMeta)) {
+      if (id === 'sample' || (S.tracksMeta[id].file && await Folder.readFile(S.tracksMeta[id].file))) continue;
+      let b = null; try { if (Store.idb) b = await idbDo('blobs', 'readonly', st => st.get('track:' + id)); } catch (e) {}
+      if (b) saveTrackToFolder(id, b, b.type === 'audio/wav' ? '.wav' : '.mp3');
+    }
+  });
+  return added;
+}
+async function refreshTrackBlobs() { for (const id of Object.keys(S.tracksMeta)) if (id !== 'sample') S.trackBlob[id] = !!(await Store.getBlob('track:' + id)); }
+async function afterFolderConnected(restoring) {
+  const n = await syncFolder();
+  await refreshTrackBlobs();
+  rebuildTrackTakes(); renderRange(); renderTakes(); renderResults(); renderToday(); renderProgress(); draw();
+  const last = S.profile && S.profile.lastTrackId;
+  if (S.ref && S.ref.id === 'sample' && last && last !== 'sample' && S.trackBlob[last] && !S.playing) { try { await loadTrackById(last); } catch (e) {} }
+  if (restoring) dataMsg(n ? `Brought back ${n} take${n === 1 ? '' : 's'} from your folder “${Folder.name}”.` : `Connected to your folder “${Folder.name}”. Your progress is now saved there too.`);
+}
+async function chooseFolder() {
+  try { await Folder.choose(); } catch (e) { if (e && e.name === 'AbortError') return; dataMsg('That folder couldn’t be used. Try another folder, for example the Takewise folder on your Desktop.'); return; }
+  await afterFolderConnected(true);
+}
+async function allowFolder() {
+  if (await Folder.reconnect()) await afterFolderConnected(false);
+  else renderStatus();
 }
 
 /* ---------- progress facts and nudges ---------- */
@@ -1265,7 +1410,7 @@ function renderToday() {
 function renderProgress() {
   const f = facts();
   const lb = S.profile && S.profile.lastBackup;
-  $('#backupInfo').textContent = 'Your progress is saved on this computer. A backup file keeps it safe and lets you move it to another computer. ' + (lb ? `Last backup: ${relDay(lb)}.` : 'No backup yet.');
+  $('#backupInfo').textContent = (Folder.state === 'connected' ? `In your folder “${Folder.name}”, inside “${DATA_DIR}”: every take, recording and track. It stays there even if you clear browser data. ` : 'In this browser on this computer. ') + 'A backup file is an extra copy you can move to another computer. ' + (lb ? `Last backup: ${relDay(lb)}.` : 'No backup yet.');
   const days = f.days.size;
   $('#progTiles').innerHTML = tile('Days practised', String(days), null) + tile('Longest streak', f.longest + (f.longest === 1 ? ' day' : ' days'), null) + tile('Time singing', f.minutes < 1 ? Math.round(f.minutes * 60) + ' s' : Math.round(f.minutes) + ' min', null) + tile('Takes', String(f.total), null);
   renderDays(f);
@@ -1335,18 +1480,20 @@ async function importData(file) {
     r.hasAudio = false; r.day = dayKey(r.createdAt); S.history.push(r); n++;
     try { await Store.saveTake(r); } catch (e) { storeFail(e); break; }
   }
-  S.history.sort((a, b) => a.createdAt - b.createdAt);
+  S.history.sort((a, b) => a.createdAt - b.createdAt); saveFolderSoon();
   if (j.profile && typeof j.profile.goal === 'number' && S.profile && !S.history.length) { S.profile.goal = clamp(j.profile.goal, 1, 10); saveProfile(); }
   rebuildTrackTakes(); renderTakes(); renderResults(); renderToday(); renderProgress(); draw();
   dataMsg(n ? `Restored ${n} take${n === 1 ? '' : 's'}. Recordings aren’t part of a backup, so restored takes show scores only.` : 'Everything in that backup is already here.');
 }
 function askDelete() {
-  const w = $('#delWrap'), where = 'this computer';
+  const w = $('#delWrap'), where = Folder.state === 'connected' ? `this browser and your folder “${Folder.name}”` : 'this computer';
   w.innerHTML = `<span class="confirm"><span>Delete every take, streak and saved track from ${where}? This can’t be undone.</span><button class="danger" id="delYes">Delete everything</button><button class="ghost" id="delNo">Cancel</button></span>`;
   $('#delNo').addEventListener('click', resetDelete);
   $('#delYes').addEventListener('click', async () => {
     $('#delYes').disabled = true; $('#delYes').textContent = 'Deleting…';
     try { await Store.deleteAll(); } catch (e) { storeFail(e); }
+    if (Folder.root) await Folder.rememberHandle();
+    await Folder.run(async () => { await Folder.remove('recordings', true); await Folder.remove('tracks', true); await Folder.remove(PROGRESS_FILE); });
     S.history = []; S.tracksMeta = {}; S.trackBlob = {};
     S.takes = S.takes.filter(t => t.source === 'example'); S.selected = S.takes[0] || null; S.overlay = null; S.nextTake = 1;
     S.profile = { goal: (S.profile && S.profile.goal) || 3, createdAt: Date.now(), lastTrackId: S.ref ? S.ref.id : 'sample', range: S.range };
@@ -1388,7 +1535,9 @@ async function startup() {
   if (S.profile.range && S.profile.range.low != null) S.range = Object.assign({}, S.profile.range);
   try { S.history = (await Store.listTakes()).filter(r => r && r.uid && typeof r.createdAt === 'number').sort((a, b) => a.createdAt - b.createdAt); } catch (e) { storeFail(e); }
   try { (await Store.listTracks()).forEach(t => { if (t && t.id) S.tracksMeta[t.id] = t; }); } catch (e) {}
-  for (const id of Object.keys(S.tracksMeta)) if (id !== 'sample') S.trackBlob[id] = !!(await Store.getBlob('track:' + id));
+  await Folder.init();
+  if (Folder.state === 'connected') { try { await syncFolder(); } catch (e) {} }
+  await refreshTrackBlobs();
   renderRange(); renderToday(); renderProgress();
   const last = S.profile.lastTrackId;
   if (last && last !== 'sample' && S.trackBlob[last]) { try { await loadTrackById(last); return; } catch (e) {} }
@@ -1398,6 +1547,7 @@ async function startup() {
 $('#goalDown').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) - 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
 $('#goalUp').addEventListener('click', () => { if (!S.profile) return; S.profile.goal = clamp((S.profile.goal || 3) + 1, 1, 10); saveProfile(); renderToday(); renderProgress(); });
 $('#btnExport').addEventListener('click', exportData);
+$('#btnFolder').addEventListener('click', chooseFolder);
 $('#btnGetApp').addEventListener('click', getApp);
 $('#fileImport').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importData(f); });
 $('#btnDelete').addEventListener('click', askDelete);
@@ -1426,8 +1576,10 @@ $('#fileTrack').addEventListener('change', async e => {
     const bytes = await f.arrayBuffer(), name = f.name.replace(/\.[^.]+$/, '');
     const buf = await ac().decodeAudioData(bytes.slice(0));
     const id = 'trk-' + hashStr(name + '|' + buf.duration.toFixed(1));
-    Store.putBlob('track:' + id, new Blob([bytes], { type: f.type || 'audio/mpeg' })).then(ok => { S.trackBlob[id] = ok; renderProgress(); });
+    const blob = new Blob([bytes], { type: f.type || 'audio/mpeg' }), ext = ((f.name.match(/\.[a-z0-9]{2,4}$/i) || ['.mp3'])[0]).toLowerCase();
+    Store.putBlob('track:' + id, blob).then(ok => { S.trackBlob[id] = ok || Folder.state === 'connected'; renderProgress(); });
     await loadReference(buf, name, false, id);
+    if (Folder.state === 'connected') saveTrackToFolder(id, blob, ext);
   }
   catch (err) { setLive('Error', 'Couldn’t read that file', 'Use an MP3, WAV, M4A or OGG audio file.', 'warn'); }
 });

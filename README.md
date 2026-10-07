@@ -8,7 +8,13 @@ A singing practice app. Upload a track, sing along, and see where your pitch and
 2. Open it in Chrome or Edge.
 3. Allow the microphone when the browser asks.
 
-Nothing is uploaded. Recordings and progress stay in the browser on your computer. Use **Save a backup** under Progress to keep a copy or move to another computer.
+Nothing is uploaded. The first time, press **Choose folder** and pick a folder on your computer (for example the folder `Takewise.html` is in). Takewise then keeps everything in a `Takewise data` folder there:
+
+- `takewise-progress.json`: every take's scores, your streak, goal and learning curve
+- `recordings/`: your takes
+- `tracks/`: the MP3s you uploaded
+
+Clearing cookies and site data in the browser doesn't touch that folder. Afterwards, press **Choose folder**, pick the same folder, and your history comes back. Folder saving works in Chrome and Edge; other browsers keep progress in the browser only.
 
 ## Versions
 
@@ -16,6 +22,7 @@ Each version is its own commit on `main`, so you can return to any of them:
 
 | Version | Commit | What changed |
 | --- | --- | --- |
+| v5 | see latest commit | Progress is saved to a folder on your computer and survives clearing browser data. |
 | v4 | `5425f1b` | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
 | v3 | `bad08fb` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
 | v2 | `b1fb452` | Progress tracking: saved takes, streaks, daily goal, nudges, habits and per-track scores. |
