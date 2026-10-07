@@ -12,13 +12,15 @@ Nothing is uploaded. Recordings and progress stay in the browser on your compute
 
 ## Versions
 
-Each version is a restore point (a Git tag):
+Each version is its own commit on `main`, so you can return to any of them:
 
-| Version | What changed |
-| --- | --- |
-| `v3` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
-| `v2` | Progress tracking: saved takes, streaks, daily goal, nudges, habits and per-track scores. |
-| `v1` | Upload a track, sing takes, pitch and volume feedback, targeted drills, blind mode. |
+| Version | Commit | What changed |
+| --- | --- | --- |
+| v3 | `bad08fb` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
+| v2 | `b1fb452` | Progress tracking: saved takes, streaks, daily goal, nudges, habits and per-track scores. |
+| v1 | `c1413f0` | Upload a track, sing takes, pitch and volume feedback, targeted drills, blind mode. |
+
+On GitHub, open **Commits** and click a commit to see that version, or open `Takewise.html` in it to download that version of the app.
 
 To go back to a version, ask Claude: “roll Takewise back to v2”. Claude restores that version as a new commit, so nothing later is lost.
 
