@@ -1,0 +1,974 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>[hidden]{display:none!important}</style></head><body>
+<title>Takewise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a practice desk. The piano-roll stage is the instrument; track, range and settings sit beside it; results and takes sit under it. */
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --ink:#16202C; --muted:#5A6676; --line:#D6DCE5;
+  --accent:#3346C8; --accent-ink:#FFFFFF; --good:#1C8A57; --warn:#B8650F; --rec:#C8333B;
+  --row:#E7EBF1; --band:rgba(22,32,44,.13);
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E1219; --surface:#161C26; --ink:#E6EAF1; --muted:#97A2B2; --line:#283142;
+  --accent:#8C9AFF; --accent-ink:#0E1219; --good:#41C98B; --warn:#F0A256; --rec:#FF6B72;
+  --row:#1B2230; --band:rgba(230,234,241,.14); color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0E1219; --surface:#161C26; --ink:#E6EAF1; --muted:#97A2B2; --line:#283142;
+  --accent:#8C9AFF; --accent-ink:#0E1219; --good:#41C98B; --warn:#F0A256; --rec:#FF6B72;
+  --row:#1B2230; --band:rgba(230,234,241,.14); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding-block:24px 48px;padding-inline:16px;margin:0}
+.app{max-width:1200px;margin:0 auto;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:30px;font-weight:700}
+h2{font-size:17px;font-weight:700}
+h3{font-size:15px;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+header.top .tag{max-width:60ch;color:var(--muted)}
+.privacy{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.privacy::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good)}
+
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);grid-template-rows:auto 1fr;gap:20px;align-items:start}
+.layout > .side1{grid-column:1;grid-row:1}
+.layout > main{grid-column:2;grid-row:1 / span 2}
+.layout > .side2{grid-column:1;grid-row:2}
+@media (max-width:920px){.layout{grid-template-columns:minmax(0,1fr);grid-template-rows:none}.layout > .side1,.layout > main,.layout > .side2{grid-column:1;grid-row:auto}}
+#resBody{display:grid;gap:14px}
+aside{display:grid;gap:16px;min-width:0}
+main{display:grid;gap:16px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:12px;min-width:0}
+.panel > header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+
+button,.btn{font:inherit;font-size:14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;line-height:1.2}
+button:hover:not(:disabled),.btn:hover{border-color:var(--muted)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.btn:focus-within,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--rec);border-color:var(--rec);color:#fff;font-weight:700}
+button.primary .dot{width:10px;height:10px;border-radius:50%;background:#fff}
+button.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button.ghost{border-color:transparent;background:transparent;padding:6px 8px;color:var(--muted)}
+button.ghost:hover{color:var(--ink)}
+.btn input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
+.btn{position:relative}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:7px 12px;font-size:13.5px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface);font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.field{display:grid;gap:6px}
+.field .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.check input{margin-top:3px;accent-color:var(--accent)}
+
+.trackname{font-weight:700;overflow-wrap:anywhere}
+.meter{height:6px;border-radius:3px;background:var(--row);overflow:hidden}
+.meter > i{display:block;height:100%;background:var(--good);width:0}
+.note{font-size:13px;border-radius:8px;padding:10px 12px;background:var(--row);color:var(--ink)}
+.note.warn{border-left:3px solid var(--warn)}
+.note.good{border-left:3px solid var(--good)}
+
+/* stage */
+.stage{padding:0;gap:0;overflow:hidden}
+.stage .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+.readout{display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:15px}
+.pill{font-weight:700;border-radius:999px;padding:5px 12px;background:var(--row);font-size:14px;white-space:nowrap}
+.pill.good{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.pill.rec{background:color-mix(in srgb,var(--rec) 18%,transparent);color:var(--rec)}
+canvas{display:block;width:100%}
+#overview{height:64px;cursor:crosshair;border-bottom:1px solid var(--line);touch-action:none}
+#detail{height:380px}
+.stage .foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:18px;height:4px;border-radius:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px}
+.chip button{padding:2px 8px;border:0;font-size:13px}
+.count{font-family:var(--f-display);font-size:28px;font-weight:700;color:var(--rec);min-width:1ch}
+
+/* results */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:640px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:2px}
+.tile b{font-family:var(--f-display);font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .delta{font-family:var(--f-mono);font-size:12.5px}
+.delta.up{color:var(--good)} .delta.down{color:var(--warn)}
+.hints{display:grid;gap:10px}
+.hint{display:grid;grid-template-columns:4px minmax(0,1fr) auto;gap:12px;align-items:start;border:1px solid var(--line);border-radius:10px;padding:12px}
+.hint::before{content:"";align-self:stretch;border-radius:2px;background:var(--warn)}
+.hint.good::before{background:var(--good)}
+.hint.info::before{background:var(--accent)}
+.hint p{font-size:14px}
+.hint .try{color:var(--muted);font-size:13.5px;margin-top:4px}
+@media (max-width:560px){.hint{grid-template-columns:4px minmax(0,1fr)} .hint > button{grid-column:2}}
+.phrases{display:flex;gap:4px;align-items:flex-end;min-height:56px}
+.phr{flex:1 1 0;display:grid;gap:4px;justify-items:center;min-width:0;border:0;background:none;padding:0;cursor:pointer}
+.phr i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--good)}
+.phr span{font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
+.guess{display:grid;gap:12px;border:1px dashed var(--accent);border-radius:10px;padding:14px}
+.banner{font-size:13.5px;border-radius:8px;padding:10px 12px;border:1px solid var(--line);background:var(--row)}
+
+/* takes */
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+tr.sel td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.badge{font-size:11.5px;border-radius:999px;padding:2px 8px;background:var(--row);color:var(--muted);font-weight:700}
+.badge.best{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.spark{width:100%;height:60px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div style="display:grid;gap:4px">
+      <h1>Takewise</h1>
+      <p class="tag">Practise a track take by take. Sing along, see where your pitch and volume drifted, then drill the exact passage.</p>
+    </div>
+    <p class="privacy">Recordings stay in this browser tab. Nothing is uploaded.</p>
+  </header>
+
+  <div class="layout">
+    <aside class="side1">
+      <section class="panel" aria-labelledby="h-track">
+        <header><h2 id="h-track">Practice track</h2><span class="label">Step 1</span></header>
+        <div class="field">
+          <span class="trackname" id="trackName">Sample: five-note scale with a swell</span>
+          <span class="small muted mono" id="trackMeta">—</span>
+        </div>
+        <div class="field">
+          <div class="head"><span class="small">Melody clarity</span><span class="small mono" id="clarityVal">—</span></div>
+          <div class="meter"><i id="clarityBar"></i></div>
+        </div>
+        <p class="note" id="trackNote" hidden></p>
+        <label class="btn accent" style="justify-content:center;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700">
+          Upload an MP3
+          <input type="file" id="fileTrack" accept="audio/*,.mp3,.wav,.m4a,.ogg">
+        </label>
+        <p class="small muted">Works best with a single melody line: a guide vocal, an a cappella take or a piano melody. In a full band mix the app may follow the wrong instrument.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-range">
+        <header><h2 id="h-range">Your range</h2><span class="label">Step 2</span></header>
+        <p class="small muted">Hold your lowest, then your highest comfortable note for three seconds. Comfortable, not your extreme.</p>
+        <div class="row">
+          <button id="btnLow">Sing low note</button>
+          <button id="btnHigh">Sing high note</button>
+        </div>
+        <p id="rangeOut" class="mono">No range yet</p>
+        <p class="note" id="rangeFit" hidden></p>
+      </section>
+
+    </aside>
+
+    <main>
+      <section class="panel stage" aria-label="Practice stage">
+        <div class="bar">
+          <div class="row">
+            <button class="primary" id="btnTake"><span class="dot"></span>Sing a take</button>
+            <button id="btnListen">Listen</button>
+            <button id="btnStop" disabled>Stop</button>
+            <span class="count" id="countIn" aria-live="assertive"></span>
+          </div>
+          <div class="row">
+            <span class="small muted">Feedback</span>
+            <div class="seg" role="group" aria-label="Feedback mode" id="segMode">
+              <button data-v="guided">Guided</button><button data-v="blind">Blind</button>
+            </div>
+          </div>
+        </div>
+        <div class="readout" aria-live="polite">
+          <span class="pill" id="livePill">Ready</span>
+          <span class="small muted" id="liveText">Drag across the strip below to pick a passage, or sing the whole track.</span>
+        </div>
+        <canvas id="overview" aria-label="Whole track overview. Drag to select a passage, click to move the start point."></canvas>
+        <canvas id="detail" aria-label="Piano roll with the target melody, your pitch and volume"></canvas>
+        <div class="foot">
+          <div class="legend">
+            <span><i style="background:var(--band);height:10px"></i>Target and on-pitch zone</span>
+            <span><i style="background:var(--good)"></i>You, on pitch</span>
+            <span><i style="background:var(--warn)"></i>You, off pitch</span>
+            <span><i style="background:var(--muted);height:2px;border-top:2px dashed var(--muted);background:none"></i>Compared take</span>
+          </div>
+          <div class="row">
+            <span class="chip" id="regionChip"><span id="regionText">Whole track</span><button id="btnClearRegion" class="ghost" aria-label="Clear passage" hidden>Clear</button></span>
+            <button class="ghost" id="zoomOut" aria-label="Show more time">−</button>
+            <button class="ghost" id="zoomIn" aria-label="Show less time">+</button>
+          </div>
+        </div>
+        <div id="micHelp" class="note warn" style="margin:0 16px 16px" hidden>
+          <p id="micHelpText"></p>
+          <div class="row" style="margin-top:8px">
+            <label class="btn">Upload a recording of my take<input type="file" id="fileTake" accept="audio/*"></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="results" aria-labelledby="h-res">
+        <header><h2 id="h-res">Last take</h2><span class="small muted mono" id="resMeta"></span></header>
+        <div id="resBody"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-takes">
+        <header><h2 id="h-takes">Your takes</h2><span class="small muted">On-pitch score per take</span></header>
+        <svg class="spark" id="spark" role="img" aria-label="On-pitch score per take"></svg>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Take</th><th>Passage</th><th>Mode</th><th>On pitch</th><th>Volume</th><th>Leaning</th><th></th></tr></thead>
+            <tbody id="takeRows"></tbody>
+          </table>
+        </div>
+        <p class="small muted">Most people dislike how their recorded voice sounds at first. That reaction fades with listening; trust the measurements more than the first impression.</p>
+      </section>
+    </main>
+
+    <aside class="side2">
+      <section class="panel" aria-labelledby="h-set">
+        <header><h2 id="h-set">Settings</h2></header>
+        <div class="field">
+          <div class="head"><span class="small">On-pitch zone</span><span class="small muted">width of the grey band</span></div>
+          <div class="seg" role="group" aria-label="On-pitch zone" id="segTol">
+            <button data-v="25">Strict ±25¢</button><button data-v="50">Normal ±50¢</button><button data-v="100">Relaxed ±100¢</button>
+          </div>
+        </div>
+        <label class="check"><input type="checkbox" id="chkOct"><span>Any octave counts<br><span class="small muted">Sing the melody an octave lower or higher if that suits your voice.</span></span></label>
+        <label class="check"><input type="checkbox" id="chkPhones"><span>I'm wearing headphones<br><span class="small muted">Without them the mic hears the track as well as you.</span></span></label>
+        <div class="field">
+          <div class="head"><label class="small" for="rngTrack">Track volume</label><span class="small mono" id="valTrack"></span></div>
+          <input type="range" id="rngTrack" min="0" max="1" step="0.05">
+        </div>
+        <label class="check"><input type="checkbox" id="chkSelf"><span>Hear myself in the headphones</span></label>
+        <div class="field">
+          <div class="head"><label class="small" for="rngSelf">My voice volume</label><span class="small mono" id="valSelf"></span></div>
+          <input type="range" id="rngSelf" min="0" max="1" step="0.05">
+        </div>
+        <div class="field">
+          <div class="head"><label class="small" for="rngOff">Timing correction</label><span class="small mono" id="valOff"></span></div>
+          <input type="range" id="rngOff" min="-100" max="400" step="5">
+          <span class="small muted">Compensates for audio delay in your device. Use “Align timing” after a take to set it.</span>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const SR = 11025, HOP = 256, WIN = 512, TMIN = Math.floor(SR / 1100), TMAX = Math.ceil(SR / 65), HOPS = HOP / SR;
+const NOTE = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const noteName = m => { const r = Math.round(m); return NOTE[((r % 12) + 12) % 12] + (Math.floor(r / 12) - 1); };
+const fmtT = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const minus = n => (n < 0 ? '−' : n > 0 ? '+' : '') + Math.abs(n);
+const median = arr => { if (!arr.length) return NaN; const a = Float64Array.from(arr).sort(); const k = a.length >> 1; return a.length % 2 ? a[k] : (a[k - 1] + a[k]) / 2; };
+const pct = (arr, p) => { if (!arr.length) return NaN; const a = Float64Array.from(arr).sort(); return a[clamp(Math.round(p * (a.length - 1)), 0, a.length - 1)]; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('takewise:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('takewise:' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+const S = {
+  ctx: null, trackGain: null, ref: null, takes: [], nextTake: 1, region: null, cursor: 0,
+  view: { center: 5, span: 10 }, playing: null, selected: null, overlay: null,
+  range: store.get('range', { low: null, high: null }),
+  set: Object.assign({ tol: 50, mode: 'guided', octFree: true, offsetMs: null, trackVol: 0.8, hearSelf: false, selfVol: 0.5, phones: false }, store.get('settings', {})),
+  mic: null, busy: false
+};
+const saveSettings = () => store.set('settings', S.set);
+
+function ac() {
+  if (!S.ctx) {
+    S.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    S.trackGain = S.ctx.createGain(); S.trackGain.gain.value = S.set.trackVol; S.trackGain.connect(S.ctx.destination);
+  }
+  return S.ctx;
+}
+
+/* ---------- pitch analysis (YIN) ---------- */
+const scratch = new Float32Array(2048);
+function yin(x, off, W, tmin, tmax, sr) {
+  const d = scratch; d[0] = 1; let running = 0;
+  for (let tau = 1; tau <= tmax; tau++) {
+    let s = 0;
+    for (let j = 0; j < W; j++) { const v = x[off + j] - x[off + j + tau]; s += v * v; }
+    running += s; d[tau] = running > 0 ? s * tau / running : 1;
+  }
+  let tau = -1;
+  for (let t = tmin; t <= tmax; t++) { if (d[t] < 0.15) { while (t + 1 <= tmax && d[t + 1] < d[t]) t++; tau = t; break; } }
+  if (tau < 0) { let m = Infinity; for (let t = tmin; t <= tmax; t++) if (d[t] < m) { m = d[t]; tau = t; } }
+  let better = tau;
+  if (tau > 1 && tau < tmax) { const a = d[tau - 1], b = d[tau], c = d[tau + 1], den = a - 2 * b + c; if (den !== 0) better = tau + 0.5 * (a - c) / den; }
+  return [sr / better, d[tau]];
+}
+async function toSR(buf) {
+  const len = Math.max(1, Math.ceil(buf.duration * SR));
+  const oc = new OfflineAudioContext(1, len, SR);
+  const src = oc.createBufferSource(); src.buffer = buf;
+  const hp = oc.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 70;
+  const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100;
+  src.connect(hp); hp.connect(lp); lp.connect(oc.destination); src.start();
+  const r = await oc.startRendering(); return r.getChannelData(0);
+}
+async function analyse(x, onProgress) {
+  const pad = new Float32Array(x.length + WIN + TMAX + 1); pad.set(x);
+  const n = Math.max(0, Math.floor(x.length / HOP));
+  const midi = new Float32Array(n).fill(NaN), db = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const off = i * HOP; let s = 0;
+    for (let j = 0; j < WIN; j++) { const v = pad[off + j]; s += v * v; }
+    db[i] = 10 * Math.log10(s / WIN + 1e-12);
+    if (db[i] > -62) { const [f, a] = yin(pad, off, WIN, TMIN, TMAX, SR); if (a < 0.2 && f > 62 && f < 1100) midi[i] = 69 + 12 * Math.log2(f / 440); }
+    if (i % 1500 === 1499) { onProgress && onProgress(i / n); await sleep(0); }
+  }
+  let mx = -Infinity; for (let i = 0; i < n; i++) if (db[i] > mx) mx = db[i];
+  for (let i = 0; i < n; i++) if (db[i] < mx - 35) midi[i] = NaN;
+  // drop runs shorter than 3 frames
+  for (let i = 0; i < n;) { if (isNaN(midi[i])) { i++; continue; } let j = i; while (j < n && !isNaN(midi[j])) j++; if (j - i < 3) for (let k = i; k < j; k++) midi[k] = NaN; i = j; }
+  // 5-frame median smoothing (also removes octave blips)
+  const sm = new Float32Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) { if (isNaN(midi[i])) continue; const w = []; for (let k = -2; k <= 2; k++) { const v = midi[i + k]; if (v === v && i + k >= 0 && i + k < n) w.push(v); } sm[i] = median(w); }
+  return { n, midi: sm, db, maxDb: mx };
+}
+function liveFrame() {
+  const m = S.mic; m.an.getFloatTimeDomainData(m.buf);
+  const k = m.k, sr = S.ctx.sampleRate / k, L = Math.floor(m.buf.length / k);
+  const x = m.dbuf || (m.dbuf = new Float32Array(L));
+  let s = 0;
+  for (let i = 0; i < L; i++) { let v = 0; for (let j = 0; j < k; j++) v += m.buf[i * k + j]; x[i] = v / k; }
+  const W = 512, off = L - W - Math.ceil(sr / 65) - 1;
+  for (let j = 0; j < W; j++) { const v = x[off + j]; s += v * v; }
+  const db = 10 * Math.log10(s / W + 1e-12);
+  let midi = NaN;
+  if (db > -55) { const [f, a] = yin(x, off, W, Math.floor(sr / 1100), Math.ceil(sr / 65), sr); if (a < 0.2 && f > 62 && f < 1100) midi = 69 + 12 * Math.log2(f / 440); }
+  return { midi, db };
+}
+
+/* ---------- reference track ---------- */
+async function loadReference(buffer, name, sample) {
+  setLive('Reading', 'Reading the melody…', '');
+  const x = await toSR(buffer);
+  const A = await analyse(x, p => setLive('Reading', `Reading the melody… ${Math.round(p * 100)}%`, ''));
+  let sounding = 0, pitched = 0; const vm = [], vdb = [];
+  for (let i = 0; i < A.n; i++) { if (A.db[i] > A.maxDb - 30) { sounding++; if (!isNaN(A.midi[i])) pitched++; } if (!isNaN(A.midi[i])) { vm.push(A.midi[i]); vdb.push(A.db[i]); } }
+  const lo5 = pct(vm, 0.03), hi95 = pct(vm, 0.97);
+  const R = Object.assign({ name, buffer, dur: buffer.duration, sample, clarity: sounding ? pitched / sounding : 0, mLo: lo5, mHi: hi95, dbMed: median(vdb) }, A);
+  const span = Math.max(12, (hi95 - lo5) + 5), mid = (hi95 + lo5) / 2;
+  R.lo = isNaN(mid) ? 55 : mid - span / 2; R.hi = isNaN(mid) ? 72 : mid + span / 2;
+  // phrases: voiced runs merged across gaps up to 0.25 s
+  const ph = []; let cur = null;
+  for (let i = 0; i < A.n; i++) { if (isNaN(A.midi[i])) continue; if (cur && i - cur.i1 <= 11) cur.i1 = i; else { cur = { i0: i, i1: i }; ph.push(cur); } }
+  R.phrases = ph.filter(p => (p.i1 - p.i0) * HOPS >= 0.3);
+  // notes: split voiced runs on pitch jumps
+  const notes = [];
+  for (let i = 0; i < A.n;) {
+    if (isNaN(A.midi[i])) { i++; continue; }
+    let s = i;
+    while (i + 1 < A.n && !isNaN(A.midi[i + 1])) {
+      if (i - s >= 2 && Math.abs(A.midi[i + 1] - A.midi[i - 1]) > 0.6) { notes.push({ i0: s, i1: i }); s = i + 1; }
+      i++;
+    }
+    notes.push({ i0: s, i1: i }); i++;
+  }
+  R.notes = notes.filter(nt => (nt.i1 - nt.i0) * HOPS >= 0.15).map(nt => { const v = []; for (let k = nt.i0; k <= nt.i1; k++) v.push(A.midi[k]); nt.m = median(v); return nt; });
+  S.ref = R; S.takes = []; S.selected = null; S.overlay = null; S.region = null; S.cursor = 0;
+  S.view.span = Math.min(12, Math.max(4, R.dur)); S.view.center = S.view.span / 2;
+  renderTrack(); renderRange(); renderRegion(); renderTakes(); renderResults(); setButtons(); draw();
+  setLive('Ready', 'Ready', 'Drag across the strip below to pick a passage, or sing the whole track.');
+}
+const voiced = i => !isNaN(S.ref.midi[i]);
+const idxOf = t => clamp(Math.round(t / HOPS), 0, S.ref.n - 1);
+const effRegion = () => S.region ? { a: S.region.a, b: S.region.b } : { a: S.cursor, b: S.ref.dur };
+
+/* ---------- sample track + example take ---------- */
+function sampleNotes() {
+  let t = 0.6; const notes = [];
+  const add = (m, d, g0 = 0.5, g1 = g0, gap = 0.06) => { notes.push({ m, t, d, g0, g1 }); t += d + gap; };
+  [60, 62, 64, 65, 67].forEach(m => add(m, 0.5));
+  add(67, 1.8, 0.22, 0.95); t += 0.5;
+  [67, 65, 64, 62, 60].forEach(m => add(m, 0.5));
+  add(60, 1.8, 0.9, 0.22); t += 0.5;
+  [64, 67, 69, 67, 64].forEach(m => add(m, 0.45)); add(60, 1.6, 0.6, 0.6);
+  return { notes, dur: t + 0.8 };
+}
+async function synth(notes, dur, o) {
+  const sr = 44100, oc = new OfflineAudioContext(1, Math.ceil(dur * sr), sr);
+  const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = o.voice ? 2600 : 1900; lp.connect(oc.destination);
+  for (const n of notes) {
+    const osc = oc.createOscillator(); osc.type = o.voice ? 'triangle' : 'sawtooth'; osc.frequency.value = 440 * Math.pow(2, (n.m - 69) / 12);
+    const lfo = oc.createOscillator(); lfo.frequency.value = 5.3; const lg = oc.createGain(); lg.gain.value = o.voice ? 20 : 8; lfo.connect(lg); lg.connect(osc.detune);
+    const det = o.detune ? o.detune(n) : 0, sc = o.scoop ? o.scoop(n) : 0;
+    osc.detune.setValueAtTime(det + sc, n.t); if (sc) osc.detune.linearRampToValueAtTime(det, n.t + 0.16);
+    const g = oc.createGain(), g0 = (o.gain ? o.gain : n.g0) * 0.35, g1 = (o.gain ? o.gain : n.g1) * 0.35;
+    g.gain.setValueAtTime(0, n.t); g.gain.linearRampToValueAtTime(g0, n.t + 0.03); g.gain.linearRampToValueAtTime(g1, n.t + n.d - 0.04); g.gain.linearRampToValueAtTime(0, n.t + n.d);
+    osc.connect(g); g.connect(lp); osc.start(n.t); osc.stop(n.t + n.d + 0.02); lfo.start(n.t); lfo.stop(n.t + n.d + 0.02);
+  }
+  return oc.startRendering();
+}
+async function loadSample() {
+  const { notes, dur } = sampleNotes();
+  const buf = await synth(notes, dur, {});
+  await loadReference(buf, 'Sample: five-note scale with a swell', true);
+  // An example take sung by the app: flat on the high notes, scoops into notes, ignores the swells.
+  const ex = await synth(notes, dur, { voice: true, gain: 0.55, detune: n => n.m >= 67 ? -40 : -4, scoop: n => (n.d < 1 && n.m >= 64 ? -130 : 0) });
+  const x = await toSR(ex);
+  await addTake({ source: 'example', x, play: ex, t0Track: 0, offset: 0, a: 0, b: S.ref.dur, mode: 'guided' });
+}
+
+/* ---------- takes ---------- */
+async function addTake(o) {
+  const raw = await analyse(o.x);
+  const take = Object.assign({ id: S.nextTake++, raw, created: Date.now() }, o);
+  mapTake(take); computeStats(take);
+  if (o.source !== 'example') { const b = bestOffset(take); if (Math.abs(b.best - take.offset) > 0.06 && b.bestE < b.curE * 0.7) take.alignHint = Math.round((b.best - take.offset) * 1000); }
+  S.takes.push(take);
+  if (o.mode === 'blind' && o.source !== 'example') { take.hidden = true; take.guess = {}; }
+  const prev = similarTakes(take).filter(t => t !== take && !t.hidden).pop();
+  S.selected = take; S.overlay = prev || null;
+  renderTakes(); renderResults(); draw();
+  return take;
+}
+function mapTake(take) {
+  const R = S.ref, n = R.n; take.um = new Float32Array(n).fill(NaN); take.udb = new Float32Array(n).fill(-120);
+  const shift = take.t0Track - take.offset;
+  const i0 = idxOf(take.a), i1 = idxOf(take.b);
+  for (let i = i0; i <= i1; i++) { const j = Math.round((i * HOPS - shift) / HOPS); if (j >= 0 && j < take.raw.n) { take.um[i] = take.raw.midi[j]; take.udb[i] = take.raw.db[j]; } }
+}
+function errC(u, r) { let d = u - r; if (S.set.octFree) d -= 12 * Math.round(d / 12); return d * 100; }
+function similarTakes(t) { return S.takes.filter(o => { const ov = Math.min(o.b, t.b) - Math.max(o.a, t.a); return ov > 0.8 * Math.max(o.b - o.a, t.b - t.a); }); }
+
+function computeStats(take) {
+  const R = S.ref, tol = S.set.tol, i0 = idxOf(take.a), i1 = idxOf(take.b);
+  const rdb = [], udb = [];
+  for (let i = i0; i <= i1; i++) if (voiced(i)) { rdb.push(R.db[i]); if (!isNaN(take.um[i])) udb.push(take.udb[i]); }
+  const rMed = median(rdb), uMed = median(udb);
+  take.err = new Float32Array(R.n).fill(NaN); take.rel = new Float32Array(R.n).fill(NaN);
+  let tv = 0, both = 0, hit = 0, vh = 0; const errs = [];
+  for (let i = i0; i <= i1; i++) {
+    if (!voiced(i)) continue; tv++;
+    if (isNaN(take.um[i])) continue;
+    both++; const e = errC(take.um[i], R.midi[i]); take.err[i] = e; errs.push(e); if (Math.abs(e) <= tol) hit++;
+    const rel = (take.udb[i] - uMed) - (R.db[i] - rMed); take.rel[i] = rel; if (Math.abs(rel) <= 4) vh++;
+  }
+  const st = take.stats = { tv, both, onPitch: both ? hit / both : 0, sung: tv ? both / tv : 0, vol: both ? vh / both : 0, bias: median(errs), uMed, rMed };
+  // phrases
+  st.phrases = R.phrases.filter(p => p.i1 * HOPS > take.a && p.i0 * HOPS < take.b).map(p => {
+    let b2 = 0, h = 0, v = 0; const e = [];
+    for (let i = Math.max(p.i0, i0); i <= Math.min(p.i1, i1); i++) { const x = take.err[i]; if (x === x) { b2++; e.push(x); if (Math.abs(x) <= tol) h++; if (Math.abs(take.rel[i]) <= 4) v++; } }
+    return { a: p.i0 * HOPS, b: p.i1 * HOPS, n: b2, onPitch: b2 ? h / b2 : 0, vol: b2 ? v / b2 : 0, bias: median(e) };
+  });
+  st.hints = diagnose(take);
+}
+
+function noteSeg(take, nt, from, to) { const v = []; const a = nt.i0 + Math.round(from / HOPS), b = to == null ? nt.i1 : Math.min(nt.i1, nt.i0 + Math.round(to / HOPS)); for (let i = a; i <= b; i++) { const e = take.err[i]; if (e === e) v.push(e); } return v; }
+function phraseAround(i) { const p = S.ref.phrases.find(p => i >= p.i0 && i <= p.i1); return p ? { a: Math.max(0, p.i0 * HOPS - 0.3), b: Math.min(S.ref.dur, p.i1 * HOPS + 0.3) } : null; }
+
+function diagnose(take) {
+  const R = S.ref, st = take.stats, out = [], c = n => Math.round(Math.abs(n));
+  const notes = R.notes.filter(nt => nt.i0 * HOPS >= take.a && nt.i1 * HOPS <= take.b);
+  if (st.sung < 0.6) out.push({ tone: 'warn', title: `Only ${Math.round(st.sung * 100)}% of the melody was picked up`, ev: 'Quiet passages or background noise make the pitch line break up.', tip: 'Sing a little closer to the microphone, in a quiet room, with headphones so the track stays out of the mic.' });
+  // high notes vs rest
+  const pitches = notes.map(n => n.m);
+  if (pitches.length >= 4) {
+    const thr = pct(pitches, 0.75), lo = Math.min(...pitches);
+    if (thr - lo >= 2) {
+      const hiE = [], loE = [];
+      notes.forEach(nt => noteSeg(take, nt, 0.15).forEach(e => (nt.m >= thr ? hiE : loE).push(e)));
+      const bh = median(hiE), bl = median(loE);
+      if (hiE.length > 10 && bh < -20 && bh - bl < -15) {
+        const worst = notes.filter(n => n.m >= thr).sort((a, b) => median(noteSeg(take, a, 0.15)) - median(noteSeg(take, b, 0.15)))[0];
+        out.push({ tone: 'warn', title: `Flat on the high notes, ${c(bh)} cents under`, ev: `Your lower notes sit at ${minus(Math.round(bl))} cents; from ${noteName(thr)} upward you drop to ${minus(Math.round(bh))}.`, tip: 'Keep the airflow steady as you go up, and think of the high note as forward and easy rather than reaching up with your chin. Hear the note in your head before you sing it.', drill: worst && phraseAround(worst.i0) });
+      } else if (hiE.length > 10 && bh > 20 && bh - bl > 15) {
+        const worst = notes.filter(n => n.m >= thr)[0];
+        out.push({ tone: 'warn', title: `Sharp on the high notes, ${c(bh)} cents over`, ev: `From ${noteName(thr)} upward you land ${c(bh)} cents high, while lower notes sit at ${minus(Math.round(bl))}.`, tip: 'Pushing often makes high notes sharp. Sing them a little softer and let the pitch settle.', drill: worst && phraseAround(worst.i0) });
+      }
+    }
+  }
+  // scooping into notes
+  const ds = []; let worstScoop = null, wv = 0;
+  notes.filter(n => (n.i1 - n.i0) * HOPS >= 0.3).forEach(nt => {
+    const early = median(noteSeg(take, nt, 0, 0.12)), late = median(noteSeg(take, nt, 0.22));
+    if (early === early && late === late) { const d = early - late; ds.push(d); if (d < wv) { wv = d; worstScoop = nt; } }
+  });
+  if (ds.length >= 3) {
+    const md = median(ds), share = ds.filter(d => d < -40).length / ds.length;
+    if (md < -35 && share >= 0.3) out.push({ tone: 'warn', title: 'Sliding up into notes', ev: `On ${Math.round(share * 100)}% of the notes you start about ${c(md)} cents low and slide up to the pitch.`, tip: 'Hear the target note before you start it, then begin right on it. Practise the passage on “nee” or a hum first so the onset lands clean.', drill: worstScoop && phraseAround(worstScoop.i0) });
+    else if (md > 35 && share < 0.3 && ds.filter(d => d > 40).length / ds.length >= 0.3) out.push({ tone: 'warn', title: 'Overshooting the start of notes', ev: `You often start about ${c(md)} cents high and come down onto the note.`, tip: 'Aim for the middle of the note from the first moment; a softer onset helps.', drill: null });
+  }
+  // drift on long notes
+  const slopes = []; let worstDrift = null, wd = 0;
+  notes.filter(n => (n.i1 - n.i0) * HOPS >= 0.8).forEach(nt => {
+    const xs = [], ys = [];
+    for (let i = nt.i0 + Math.round(0.2 / HOPS); i <= nt.i1; i++) { const e = take.err[i]; if (e === e) { xs.push(i * HOPS); ys.push(e); } }
+    if (xs.length < 15) return;
+    const mx = xs.reduce((a, b) => a + b) / xs.length, my = ys.reduce((a, b) => a + b) / ys.length;
+    let nu = 0, de = 0; xs.forEach((x, k) => { nu += (x - mx) * (ys[k] - my); de += (x - mx) ** 2; });
+    const sl = nu / de; slopes.push(sl); if (sl < wd) { wd = sl; worstDrift = nt; }
+  });
+  if (slopes.length && median(slopes) < -25) out.push({ tone: 'warn', title: 'Long notes sag flat', ev: `Held notes drift down about ${c(median(slopes))} cents per second.`, tip: 'This usually means the breath is running out. Take a fuller, low breath before the phrase and keep the note supported to its end.', drill: worstDrift && phraseAround(worstDrift.i0) });
+  else if (slopes.length && median(slopes) > 25) out.push({ tone: 'warn', title: 'Long notes creep sharp', ev: `Held notes drift up about ${c(median(slopes))} cents per second.`, tip: 'Release pressure while holding the note; keep the volume steady rather than squeezing.', drill: null });
+  // volume: does the singer follow swells?
+  let swellMiss = null;
+  notes.filter(n => (n.i1 - n.i0) * HOPS >= 0.9).forEach(nt => {
+    const k = Math.round(0.3 / HOPS), seg = (a, b, arr) => { const v = []; for (let i = a; i <= b; i++) if (take.err[i] === take.err[i]) v.push(arr[i]); return median(v); };
+    const rd = seg(nt.i1 - k, nt.i1, R.db) - seg(nt.i0, nt.i0 + k, R.db), ud = seg(nt.i1 - k, nt.i1, take.udb) - seg(nt.i0, nt.i0 + k, take.udb);
+    if (Math.abs(rd) >= 6 && rd === rd && ud === ud && (Math.sign(ud) !== Math.sign(rd) || Math.abs(ud) < Math.abs(rd) / 2)) { if (!swellMiss || Math.abs(rd) > Math.abs(swellMiss.rd)) swellMiss = { nt, rd, ud }; }
+  });
+  if (swellMiss) {
+    const up = swellMiss.rd > 0;
+    out.push({ tone: 'warn', title: up ? 'Not following the swell' : 'Not following the fade', ev: `On ${noteName(swellMiss.nt.m)} the track gets ${Math.round(Math.abs(swellMiss.rd))} dB ${up ? 'louder' : 'softer'}; your voice changes ${minus(Math.round(swellMiss.ud))} dB.`, tip: up ? 'Start the note softer than feels natural, then add breath, not throat pressure, to grow it.' : 'Let the note get softer while keeping the pitch up; soft notes tend to go flat.', drill: phraseAround(swellMiss.nt.i0) });
+  }
+  // getting louder on high notes when the track does not
+  if (pitches.length >= 4) {
+    const thr = pct(pitches, 0.75), hu = [], lu = [], hr = [], lr = [];
+    notes.forEach(nt => { for (let i = nt.i0; i <= nt.i1; i++) if (take.err[i] === take.err[i]) { (nt.m >= thr ? hu : lu).push(take.udb[i]); (nt.m >= thr ? hr : lr).push(R.db[i]); } });
+    const du = median(hu) - median(lu), dr = median(hr) - median(lr);
+    if (hu.length > 10 && lu.length > 10 && du - dr > 6) out.push({ tone: 'warn', title: 'Pushing volume on high notes', ev: `You get ${Math.round(du - dr)} dB louder on the high notes than the track does.`, tip: 'Volume is not what makes a high note work. Try the passage at a comfortable medium volume all the way through.', drill: null });
+  }
+  // overall leaning
+  if (!out.some(h => /high notes/.test(h.title)) && Math.abs(st.bias) >= 25) out.push({ tone: 'warn', title: st.bias < 0 ? `Leaning flat overall, ${c(st.bias)} cents` : `Leaning sharp overall, ${c(st.bias)} cents`, ev: 'The whole passage sits on the same side of the target.', tip: st.bias < 0 ? 'Listen to the first note of each phrase before you sing it, and imagine the pitch slightly higher.' : 'Relax and sing a touch softer; imagine the pitch slightly lower.', drill: null });
+  if (!out.length && st.onPitch >= 0.6) out.push({ tone: 'good', title: 'No clear pattern of mistakes', ev: `${Math.round(st.onPitch * 100)}% on pitch and no consistent leaning.`, tip: 'Narrow the on-pitch zone to Strict, or try a Blind take to check your ear without the line.', drill: null });
+  if (!out.length) out.push({ tone: 'info', title: 'Misses without one clear cause', ev: 'Your pitch varies on both sides of the target.', tip: 'Pick the weakest passage below, slow down, and sing it a few times in a row.', drill: null });
+  return out.slice(0, 3);
+}
+
+/* ---------- audio: playback, mic, recorder ---------- */
+function playTrack(when, a, b) {
+  const ctx = ac(); const src = ctx.createBufferSource(); src.buffer = S.ref.buffer; src.connect(S.trackGain);
+  src.start(when, a, Math.max(0.05, b - a)); return src;
+}
+const trackPos = () => { const p = S.playing; if (!p) return S.cursor; return clamp(p.a + S.ctx.currentTime - p.startAt, p.a - 5, p.b); };
+
+async function ensureMic() {
+  if (S.mic) return S.mic;
+  const ctx = ac();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('unsupported');
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  const src = ctx.createMediaStreamSource(stream);
+  const k = Math.max(1, Math.round(ctx.sampleRate / SR)); let fft = 2048; while (fft < 1024 * k) fft *= 2;
+  const an = ctx.createAnalyser(); an.fftSize = fft; src.connect(an);
+  const mon = ctx.createGain(); mon.gain.value = S.set.hearSelf ? S.set.selfVol : 0; src.connect(mon); mon.connect(ctx.destination);
+  let inLat = 0; try { inLat = stream.getAudioTracks()[0].getSettings().latency || 0; } catch (e) {}
+  S.mic = { stream, src, an, mon, k, buf: new Float32Array(fft) };
+  if (S.set.offsetMs == null) { S.set.offsetMs = clamp(Math.round(((ctx.outputLatency || 0) + (ctx.baseLatency || 0) + inLat) * 1000) + 20, -100, 400); saveSettings(); renderSettings(); }
+  $('#micHelp').hidden = true;
+  return S.mic;
+}
+const WORKLET = `class TwRec extends AudioWorkletProcessor{constructor(){super();this.on=true;this.first=true;this.port.onmessage=e=>{if(e.data==='stop')this.on=false;};}process(inputs){const ch=inputs[0]&&inputs[0][0];if(this.on&&ch){if(this.first){this.port.postMessage({t0:currentTime});this.first=false;}this.port.postMessage(ch.slice(0));}return this.on;}}registerProcessor('tw-rec',TwRec);`;
+async function startRecorder() {
+  const ctx = ac(), m = S.mic, rec = { chunks: [], t0: null, stop: null };
+  if (ctx.audioWorklet && !S.workletFailed) {
+    try {
+      if (!S.workletReady) { const url = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' })); await ctx.audioWorklet.addModule(url); S.workletReady = true; }
+      const node = new AudioWorkletNode(ctx, 'tw-rec', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+      node.port.onmessage = e => { if (e.data && e.data.t0 != null) rec.t0 = e.data.t0; else rec.chunks.push(e.data); };
+      const z = ctx.createGain(); z.gain.value = 0; m.src.connect(node); node.connect(z); z.connect(ctx.destination);
+      rec.stop = () => { node.port.postMessage('stop'); setTimeout(() => { try { m.src.disconnect(node); node.disconnect(); z.disconnect(); } catch (e) {} }, 200); };
+      return rec;
+    } catch (e) { S.workletFailed = true; }
+  }
+  const sp = ctx.createScriptProcessor(4096, 1, 1), z = ctx.createGain(); z.gain.value = 0;
+  sp.onaudioprocess = e => { if (rec.t0 == null) rec.t0 = e.playbackTime - 2 * 4096 / ctx.sampleRate; rec.chunks.push(e.inputBuffer.getChannelData(0).slice(0)); };
+  m.src.connect(sp); sp.connect(z); z.connect(ctx.destination);
+  rec.stop = () => { try { m.src.disconnect(sp); sp.disconnect(); z.disconnect(); } catch (e) {} };
+  return rec;
+}
+async function measureNoise() {
+  const v = []; for (let i = 0; i < 6; i++) { v.push(liveFrame().db); await sleep(60); } return median(v);
+}
+
+function showMicHelp(err) {
+  const blocked = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message === 'unsupported');
+  $('#micHelpText').textContent = blocked
+    ? 'The microphone isn’t available here. Embedded previews block it; open Takewise as its own page in Chrome, Edge, Firefox or Safari and allow the microphone. You can also upload a recording of yourself singing along, started at the beginning of the passage.'
+    : 'No microphone was found. Connect one, or upload a recording of yourself singing along, started at the beginning of the passage.';
+  $('#micHelp').hidden = false;
+  setLive('Mic blocked', 'No microphone', '', 'warn');
+}
+
+/* ---------- transport ---------- */
+async function startTake() {
+  if (!S.ref || S.playing || S.busy) return;
+  let m; try { m = await ensureMic(); } catch (e) { showMicHelp(e); return; }
+  const ctx = ac(); await ctx.resume();
+  S.busy = true; setButtons();
+  const noise = await measureNoise();
+  const rec = await startRecorder();
+  const { a, b } = effRegion(), lead = 1.5, startAt = ctx.currentTime + lead;
+  for (let k = 0; k < 3; k++) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = k === 2 ? 1320 : 880; g.gain.setValueAtTime(0.0001, startAt - lead + k * 0.5); g.gain.exponentialRampToValueAtTime(0.25, startAt - lead + k * 0.5 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, startAt - lead + k * 0.5 + 0.09); o.connect(g); g.connect(ctx.destination); o.start(startAt - lead + k * 0.5); o.stop(startAt - lead + k * 0.5 + 0.1); }
+  const src = playTrack(startAt, a, b);
+  S.playing = { kind: 'take', src, startAt, a, b, rec, live: [], mode: S.set.mode, noise };
+  S.selected = null; S.overlay = similarTakes({ a, b }).filter(t => !t.hidden).pop() || null;
+  src.onended = finishTake;
+  S.busy = false; setButtons(); loop();
+}
+async function finishTake() {
+  const p = S.playing; if (!p || p.kind !== 'take' || p.finishing) return;
+  p.finishing = true; p.rec.stop(); await sleep(250);
+  S.playing = null; setButtons(); $('#countIn').textContent = '';
+  const ctx = S.ctx, len = p.rec.chunks.reduce((s, c) => s + c.length, 0);
+  if (len < ctx.sampleRate * 0.5 || p.rec.t0 == null) { setLive('Too short', 'That take was too short to analyse.', '', 'warn'); draw(); return; }
+  const pcm = new Float32Array(len); let o = 0; for (const c of p.rec.chunks) { pcm.set(c, o); o += c.length; }
+  const play = ctx.createBuffer(1, len, ctx.sampleRate); play.copyToChannel(pcm, 0);
+  setLive('Analysing', 'Measuring your take…', '');
+  const x = await toSR(play);
+  const take = await addTake({ source: 'mic', x, play, t0Track: p.a + (p.rec.t0 - p.startAt), offset: (S.set.offsetMs || 0) / 1000, a: p.a, b: Math.min(p.b, p.a + (ctx.currentTime - p.startAt)), mode: p.mode, noise: p.noise });
+  if (take.hidden) setLive('Your guess', 'Blind take recorded', 'Before you look: how do you think it went?');
+  else setLive('Done', 'Take ' + take.id + ' measured', 'See what to work on below.', 'good');
+  $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+}
+async function startListen() {
+  if (!S.ref || S.playing) return;
+  const ctx = ac(); await ctx.resume();
+  const { a, b } = effRegion(), startAt = ctx.currentTime + 0.05;
+  const src = playTrack(startAt, a, b);
+  S.playing = { kind: 'listen', src, startAt, a, b };
+  src.onended = () => { if (S.playing && S.playing.src === src) { S.playing = null; setButtons(); setLive('Ready', 'Ready', ''); draw(); } };
+  setButtons(); setLive('Listening', 'Listening to the track', 'Hum along silently and notice the shape of the melody.'); loop();
+}
+async function replayTake(take, withTrack) {
+  if (S.playing) stopAll();
+  const ctx = ac(); await ctx.resume();
+  const startAt = ctx.currentTime + 0.08, srcs = [];
+  const v = ctx.createBufferSource(); v.buffer = take.play; v.connect(ctx.destination);
+  const lead = take.offset; // voice audio starts at track time t0Track, heard against track time t0Track - offset
+  const trackStart = take.t0Track - lead;
+  v.start(startAt); srcs.push(v);
+  if (withTrack) { const t = ctx.createBufferSource(); t.buffer = S.ref.buffer; t.connect(S.trackGain); if (trackStart >= 0) t.start(startAt, trackStart, take.play.duration); else t.start(startAt - trackStart, 0, take.play.duration); srcs.push(t); }
+  S.selected = take; S.playing = { kind: 'replay', src: v, srcs, startAt, a: trackStart, b: trackStart + take.play.duration };
+  v.onended = () => { if (S.playing && S.playing.src === v) { srcs.forEach(s => { try { s.stop(); } catch (e) {} }); S.playing = null; setButtons(); draw(); setLive('Ready', 'Ready', ''); } };
+  setButtons(); setLive('Playing', 'Playing take ' + take.id + (withTrack ? ' with the track' : ''), ''); renderTakes(); loop();
+}
+function stopAll() {
+  const p = S.playing; if (!p) return;
+  if (p.kind === 'take') { try { p.src.onended = null; p.src.stop(); } catch (e) {} finishTake(); return; }
+  (p.srcs || [p.src]).forEach(s => { try { s.onended = null; s.stop(); } catch (e) {} });
+  S.playing = null; setButtons(); setLive('Ready', 'Ready', ''); draw();
+}
+function setButtons() {
+  const busy = !!S.playing || S.busy;
+  $('#btnTake').disabled = busy || !S.ref; $('#btnListen').disabled = busy || !S.ref; $('#btnStop').disabled = !S.playing;
+  $('#btnLow').disabled = busy; $('#btnHigh').disabled = busy;
+}
+
+/* ---------- live loop ---------- */
+let raf = 0;
+function loop() {
+  cancelAnimationFrame(raf);
+  const tick = () => {
+    const p = S.playing; if (!p) { draw(); return; }
+    const pos = trackPos(), ctx = S.ctx;
+    if (p.kind === 'take') {
+      const wait = p.startAt - ctx.currentTime;
+      $('#countIn').textContent = wait > 0 ? String(Math.min(3, Math.ceil(wait / 0.5))) : '';
+      if (wait <= 0) {
+        const f = liveFrame(), t = pos - (S.set.offsetMs || 0) / 1000 - 0.04;
+        p.live.push({ t, m: f.midi, db: f.db });
+        if (p.mode === 'blind') setLive('Blind', 'Recording · line hidden', 'Trust your ear. You’ll guess how it went before you see it.', 'rec');
+        else {
+          const i = idxOf(t), r = S.ref.midi[i];
+          if (isNaN(f.midi)) setLive('Recording', isNaN(r) ? 'Rest' : 'Listening for you…', '', 'rec');
+          else if (isNaN(r)) setLive('Recording', 'No target here', '', 'rec');
+          else { const e = errC(f.midi, r); if (Math.abs(e) <= S.set.tol) setLive('On', 'On pitch', noteName(r), 'good'); else setLive('Off', `${Math.round(Math.abs(e))}¢ ${e < 0 ? 'flat' : 'sharp'}`, e < 0 ? '↑ go up' : '↓ come down', 'warn'); }
+        }
+      } else setLive('Count-in', 'Get ready', 'Starting at ' + fmtT(p.a), 'rec');
+    }
+    if (pos > S.view.center + S.view.span * 0.2 || pos < S.view.center - S.view.span / 2) S.view.center = pos + S.view.span * 0.2;
+    draw();
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+function setLive(_k, pill, text, tone) {
+  const el = $('#livePill'); el.textContent = pill; el.className = 'pill' + (tone ? ' ' + tone : '');
+  $('#liveText').textContent = text || '';
+}
+
+/* ---------- drawing ---------- */
+function tok() { const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim(); return { ink: g('--ink'), muted: g('--muted'), line: g('--line'), row: g('--row'), band: g('--band'), good: g('--good'), warn: g('--warn'), accent: g('--accent'), rec: g('--rec'), surface: g('--surface'), mono: g('--f-mono') }; }
+function fit(c) { const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1, w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height)); if (c.width !== w * d || c.height !== h * d) { c.width = w * d; c.height = h * d; } const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { g, w, h }; }
+function draw() { drawOverview(); drawDetail(); }
+
+function drawOverview() {
+  const { g, w, h } = fit($('#overview')), T = tok(); g.clearRect(0, 0, w, h);
+  if (!S.ref) return;
+  const R = S.ref, X = t => 8 + t / R.dur * (w - 16), Y = m => 8 + (R.hi - m) / (R.hi - R.lo) * (h - 24);
+  g.fillStyle = T.row; g.fillRect(X(S.view.center - S.view.span / 2), 0, X(S.view.center + S.view.span / 2) - X(S.view.center - S.view.span / 2), h);
+  if (S.region) { g.fillStyle = T.accent; g.globalAlpha = 0.16; g.fillRect(X(S.region.a), 0, X(S.region.b) - X(S.region.a), h); g.globalAlpha = 1; g.fillStyle = T.accent; g.fillRect(X(S.region.a) - 1, 0, 2, h); g.fillRect(X(S.region.b) - 1, 0, 2, h); }
+  g.strokeStyle = T.ink; g.lineWidth = 1.5; g.beginPath(); let pen = false;
+  for (let i = 0; i < R.n; i += 2) { const m = R.midi[i]; if (isNaN(m)) { pen = false; continue; } const x = X(i * HOPS), y = Y(m); pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; }
+  g.stroke();
+  const t = S.selected && !S.selected.hidden ? S.selected : null;
+  if (t) t.stats.phrases.forEach(p => { g.fillStyle = p.onPitch >= 0.7 ? T.good : T.warn; g.fillRect(X(p.a), h - 8, Math.max(2, X(p.b) - X(p.a)), 4); });
+  const pos = S.playing ? trackPos() : S.cursor; g.fillStyle = S.playing && S.playing.kind === 'take' ? T.rec : T.ink; g.fillRect(X(pos) - 1, 0, 2, h);
+}
+
+function drawDetail() {
+  const c = $('#detail'), { g, w, h } = fit(c), T = tok(); g.clearRect(0, 0, w, h);
+  if (!S.ref) return;
+  const R = S.ref, gut = 46, right = 10, top = 10, volH = 60, axisH = 22, pitchB = h - volH - axisH - 18, volT = pitchB + 18, volB = volT + volH;
+  const t0 = S.view.center - S.view.span / 2, t1 = t0 + S.view.span;
+  const X = t => gut + (t - t0) / (t1 - t0) * (w - gut - right), Y = m => top + (R.hi - m) / (R.hi - R.lo) * (pitchB - top);
+  const pxSt = (pitchB - top) / (R.hi - R.lo);
+  g.font = `11px ${T.mono}`; g.textBaseline = 'middle';
+  // piano-roll rows
+  for (let m = Math.ceil(R.lo); m <= Math.floor(R.hi); m++) {
+    const pc = ((m % 12) + 12) % 12, black = [1, 3, 6, 8, 10].includes(pc);
+    if (black) { g.fillStyle = T.row; g.fillRect(gut, Y(m + 0.5), w - gut - right, pxSt); }
+    if (pc === 0) { g.strokeStyle = T.line; g.lineWidth = 1; g.beginPath(); g.moveTo(gut, Y(m - 0.5)); g.lineTo(w - right, Y(m - 0.5)); g.stroke(); }
+    if (!black && (pxSt >= 11 || pc === 0)) { g.fillStyle = pc === 0 ? T.ink : T.muted; g.textAlign = 'right'; g.fillText(noteName(m), gut - 8, Y(m)); }
+  }
+  // range lines
+  if (S.range.low != null && S.range.high != null && !S.set.octFree) [S.range.low, S.range.high].forEach(m => { if (m > R.lo && m < R.hi) { g.setLineDash([2, 4]); g.strokeStyle = T.muted; g.beginPath(); g.moveTo(gut, Y(m)); g.lineTo(w - right, Y(m)); g.stroke(); g.setLineDash([]); } });
+  // passage
+  if (S.region) { g.fillStyle = T.accent; g.globalAlpha = 0.07; g.fillRect(X(S.region.a), top, X(S.region.b) - X(S.region.a), volB - top); g.globalAlpha = 1; }
+  const iA = clamp(Math.floor(t0 / HOPS) - 1, 0, R.n - 1), iB = clamp(Math.ceil(t1 / HOPS) + 1, 0, R.n - 1);
+  // target band + line
+  const path = (arr, yf, cb) => { g.beginPath(); let pen = false; for (let i = iA; i <= iB; i++) { const v = arr[i]; if (isNaN(v)) { pen = false; continue; } const x = X(i * HOPS), y = yf(v, i); if (cb && !cb(i)) { pen = false; continue; } pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; } };
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  path(R.midi, m => Y(m)); g.strokeStyle = T.band; g.lineWidth = Math.max(4, 2 * S.set.tol / 100 * pxSt); g.stroke();
+  path(R.midi, m => Y(m)); g.strokeStyle = T.ink; g.globalAlpha = 0.55; g.lineWidth = 1.5; g.stroke(); g.globalAlpha = 1;
+  // fold a sung pitch to the octave closest to the target
+  const fold = (u, i) => { if (!S.set.octFree) return u; const r = R.midi[i]; if (isNaN(r)) return u; return u + 12 * Math.round((r - u) / 12); };
+  // overlay take
+  const ov = S.overlay && S.overlay !== S.selected && !S.overlay.hidden ? S.overlay : null;
+  if (ov) { path(ov.um, (u, i) => Y(fold(u, i))); g.setLineDash([5, 4]); g.strokeStyle = T.muted; g.lineWidth = 1.5; g.stroke(); g.setLineDash([]); }
+  // sung line, coloured per segment
+  const seg = (pts) => { g.lineWidth = 2.5; for (let k = 1; k < pts.length; k++) { const a = pts[k - 1], b = pts[k]; if (isNaN(a.m) || isNaN(b.m) || b.t - a.t > 0.09) continue; if (b.t < t0 - 0.2 || a.t > t1 + 0.2) continue; const i = idxOf(b.t), r = R.midi[i]; const ok = !isNaN(r) && Math.abs(errC(b.m, r)) <= S.set.tol; g.strokeStyle = isNaN(r) ? T.muted : ok ? T.good : T.warn; g.beginPath(); g.moveTo(X(a.t), Y(fold(a.m, idxOf(a.t)))); g.lineTo(X(b.t), Y(fold(b.m, i))); g.stroke(); } };
+  const p = S.playing;
+  if (p && p.kind === 'take') { if (p.mode !== 'blind') seg(p.live); }
+  else if (S.selected && !S.selected.hidden) { const tk = S.selected, pts = []; for (let i = iA; i <= iB; i++) pts.push({ t: i * HOPS, m: tk.um[i] }); seg(pts); }
+  // volume lane
+  g.fillStyle = T.muted; g.textAlign = 'left'; g.fillText('VOLUME', 4, volT + 6);
+  g.font = `10px ${T.mono}`; g.fillText('louder', 4, volT + 22); g.fillText('softer', 4, volB - 4); g.font = `11px ${T.mono}`;
+  g.strokeStyle = T.line; g.lineWidth = 1; g.strokeRect(gut + 0.5, volT + 0.5, w - gut - right - 1, volH - 1);
+  const VY = d => volT + volH / 2 - clamp(d, -15, 15) / 15 * (volH / 2 - 4);
+  g.strokeStyle = T.line; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(gut, VY(0)); g.lineTo(w - right, VY(0)); g.stroke(); g.setLineDash([]);
+  const rMed = R.dbMed;
+  path(R.db, (d) => VY(d - rMed), i => voiced(i)); g.strokeStyle = T.band; g.lineWidth = Math.max(4, 8 / 30 * (volH - 8)); g.stroke();
+  path(R.db, (d) => VY(d - rMed), i => voiced(i)); g.strokeStyle = T.ink; g.globalAlpha = 0.55; g.lineWidth = 1.5; g.stroke(); g.globalAlpha = 1;
+  if (p && p.kind === 'take' && p.mode !== 'blind' && p.live.length) {
+    const vs = p.live.filter(q => !isNaN(q.m)).map(q => q.db); const um = vs.length > 20 ? median(vs) : null;
+    if (um != null) { g.strokeStyle = T.accent; g.lineWidth = 2; g.beginPath(); let pen = false; for (let k = 0; k < p.live.length; k++) { const q = p.live[k]; if (isNaN(q.m) || q.t < t0) { pen = false; continue; } const y = VY(q.db - um), x = X(q.t); pen ? g.lineTo(x, y) : g.moveTo(x, y); pen = true; } g.stroke(); }
+  } else if (S.selected && !S.selected.hidden && !(p && p.kind === 'take')) {
+    const tk = S.selected; path(tk.udb, d => VY(d - tk.stats.uMed), i => !isNaN(tk.um[i]) && voiced(i)); g.strokeStyle = T.accent; g.lineWidth = 2; g.stroke();
+  }
+  // time axis
+  g.fillStyle = T.muted; g.textAlign = 'center';
+  let step = 0.5; for (const s2 of [0.5, 1, 2, 5, 10, 30]) { step = s2; if (s2 / S.view.span * (w - gut - right) >= 48) break; }
+  for (let t = Math.ceil(t0 / step) * step; t <= t1; t += step) { if (t < 0 || t > R.dur) continue; const x = X(t); g.fillRect(x, volB + 2, 1, 4); g.fillText(fmtT(t).replace(/\.0$/, ''), x, volB + 14); }
+  // playhead / cursor
+  const pos = p ? trackPos() : S.cursor; const px = X(pos);
+  if (px >= gut && px <= w - right) { g.fillStyle = p && p.kind === 'take' ? T.rec : T.ink; g.fillRect(px - 1, top, 2, volB - top); }
+  if (p && p.kind === 'take' && p.mode === 'blind') { g.fillStyle = T.muted; g.textAlign = 'center'; g.font = `13px ${T.mono}`; g.fillText('Your line is hidden during a blind take', (gut + w) / 2, top + 14); }
+}
+
+/* ---------- overview interaction ---------- */
+(() => {
+  const c = $('#overview'); let drag = null;
+  const tAt = e => { const r = c.getBoundingClientRect(); return clamp((e.clientX - r.left - 8) / (r.width - 16), 0, 1) * (S.ref ? S.ref.dur : 0); };
+  c.addEventListener('pointerdown', e => { if (!S.ref || S.playing) return; c.setPointerCapture(e.pointerId); drag = { a: tAt(e), moved: false }; });
+  c.addEventListener('pointermove', e => { if (!drag) return; const t = tAt(e); if (Math.abs(t - drag.a) > S.ref.dur * 0.01) drag.moved = true; if (drag.moved) { S.region = { a: Math.min(drag.a, t), b: Math.max(drag.a, t) }; S.view.span = clamp(S.region.b - S.region.a + 1, 3, 40); S.view.center = (S.region.a + S.region.b) / 2; renderRegion(); draw(); } });
+  c.addEventListener('pointerup', e => { if (!drag) return; if (!drag.moved) { S.cursor = drag.a; S.region = null; S.view.center = drag.a + S.view.span * 0.3; renderRegion(); } else if (S.region.b - S.region.a < 0.5) { S.region = null; renderRegion(); } drag = null; draw(); });
+  $('#detail').addEventListener('click', e => { if (!S.ref || S.playing) return; const r = e.currentTarget.getBoundingClientRect(); const t0 = S.view.center - S.view.span / 2; const t = t0 + (e.clientX - r.left - 46) / (r.width - 56) * S.view.span; if (t >= 0 && t <= S.ref.dur && !S.region) { S.cursor = t; renderRegion(); draw(); } });
+})();
+function setRegion(r) { if (!r) return; S.region = { a: r.a, b: r.b }; S.view.span = clamp(r.b - r.a + 1, 3, 40); S.view.center = (r.a + r.b) / 2; renderRegion(); draw(); $('.stage').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); setLive('Passage set', 'Passage ready', 'Sing a take to drill ' + fmtT(r.a) + '–' + fmtT(r.b) + '.'); }
+
+/* ---------- rendering panels ---------- */
+function renderTrack() {
+  const R = S.ref; $('#trackName').textContent = R.name;
+  $('#trackMeta').textContent = `${fmtT(R.dur)} · melody ${isNaN(R.mLo) ? '—' : noteName(R.mLo) + '–' + noteName(R.mHi)}`;
+  const c = Math.round(R.clarity * 100); $('#clarityVal').textContent = c + '%';
+  const bar = $('#clarityBar'); bar.style.width = c + '%'; bar.style.background = c >= 60 ? 'var(--good)' : 'var(--warn)';
+  const n = $('#trackNote');
+  if (R.sample) { n.hidden = false; n.className = 'note'; n.textContent = 'This sample is generated by the app so you can try everything right away. Upload your own track to replace it.'; }
+  else if (c < 50) { n.hidden = false; n.className = 'note warn'; n.textContent = `Only ${c}% of the sound has a clear single pitch. This looks like a full mix, so the target line may follow the wrong instrument. Check the line against what you hear; a guide vocal or melody track works better.`; }
+  else { n.hidden = false; n.className = 'note good'; n.textContent = 'Clear melody line found. Listen once, then sing a take.'; }
+}
+function renderRange() {
+  const r = S.range, out = $('#rangeOut'), fitEl = $('#rangeFit');
+  if (r.low == null || r.high == null) { out.textContent = r.low != null ? `Low: ${noteName(r.low)} · now sing high` : r.high != null ? `High: ${noteName(r.high)} · now sing low` : 'No range yet'; fitEl.hidden = true; return; }
+  const lo = Math.min(r.low, r.high), hi = Math.max(r.low, r.high);
+  out.textContent = `${noteName(lo)} – ${noteName(hi)} · ${Math.round(hi - lo)} semitones`;
+  if (!S.ref || isNaN(S.ref.mLo)) { fitEl.hidden = true; return; }
+  const ml = S.ref.mLo, mh = S.ref.mHi; let best = 0, bestScore = -1;
+  for (let k = -2; k <= 1; k++) { const a = ml + 12 * k, b = mh + 12 * k; const ov = Math.max(0, Math.min(b, hi) - Math.max(a, lo)) / Math.max(0.5, b - a); if (ov > bestScore + 0.01 || (Math.abs(ov - bestScore) <= 0.01 && Math.abs(k) < Math.abs(best))) { bestScore = ov; best = k; } }
+  fitEl.hidden = false;
+  const span = mh - ml, oct = best === 0 ? '' : best < 0 ? (best === -1 ? ' an octave lower' : ' two octaves lower') : ' an octave higher';
+  if (span > hi - lo + 1) { fitEl.className = 'note warn'; fitEl.textContent = `The melody spans ${Math.round(span)} semitones; your comfortable range is ${Math.round(hi - lo)}. Expect the edges to feel hard: aim for an easy tone there rather than volume.`; }
+  else if (bestScore >= 0.95) { fitEl.className = 'note good'; fitEl.textContent = best === 0 ? `The melody (${noteName(ml)}–${noteName(mh)}) sits inside your range.` : `Sing the melody${oct} (${noteName(ml + 12 * best)}–${noteName(mh + 12 * best)}). ${S.set.octFree ? 'Any octave counts, so scoring is unaffected.' : 'Turn on “Any octave counts” in Settings so this scores correctly.'}`; }
+  else { fitEl.className = 'note warn'; fitEl.textContent = `Part of the melody sits outside your range, even${oct || ' in this octave'}. Take those notes lightly, or pick a passage that fits.`; }
+}
+function renderRegion() {
+  const t = $('#regionText'), b = $('#btnClearRegion');
+  if (S.region) { t.textContent = `Passage ${fmtT(S.region.a)}–${fmtT(S.region.b)}`; b.hidden = false; }
+  else { t.textContent = S.cursor > 0.05 ? `From ${fmtT(S.cursor)} to the end` : 'Whole track'; b.hidden = true; }
+}
+function renderSettings() {
+  document.querySelectorAll('#segTol button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === S.set.tol)));
+  document.querySelectorAll('#segMode button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.set.mode)));
+  $('#chkOct').checked = S.set.octFree; $('#chkPhones').checked = S.set.phones; $('#chkSelf').checked = S.set.hearSelf;
+  $('#rngTrack').value = S.set.trackVol; $('#valTrack').textContent = Math.round(S.set.trackVol * 100) + '%';
+  $('#rngSelf').value = S.set.selfVol; $('#valSelf').textContent = Math.round(S.set.selfVol * 100) + '%'; $('#rngSelf').disabled = !S.set.hearSelf;
+  $('#rngOff').value = S.set.offsetMs ?? 60; $('#valOff').textContent = S.set.offsetMs == null ? 'auto' : S.set.offsetMs + ' ms';
+}
+
+function tile(label, value, delta, unit) {
+  const d = delta == null || isNaN(delta) ? '' : `<span class="delta ${delta >= 0 ? 'up' : 'down'}">${minus(Math.round(delta))}${unit} vs last</span>`;
+  return `<div class="tile"><span class="label">${label}</span><b>${value}</b>${d}</div>`;
+}
+function leaning(b) { if (isNaN(b)) return '—'; const r = Math.round(b); return Math.abs(r) < 10 ? 'Centred' : `${Math.abs(r)}¢ ${r < 0 ? 'flat' : 'sharp'}`; }
+function renderResults() {
+  const body = $('#resBody'), meta = $('#resMeta'), t = S.selected;
+  if (!t) { meta.textContent = ''; body.innerHTML = '<p class="muted">Sing a take and your measurements appear here: how much was on pitch, which way you lean, whether you follow the volume, and what to drill next.</p>'; return; }
+  meta.textContent = `Take ${t.id} · ${fmtT(t.a)}–${fmtT(t.b)} · ${t.mode === 'blind' ? 'Blind' : 'Guided'}`;
+  if (t.hidden) {
+    body.innerHTML = `<div class="guess"><h3>Before you look: how did it go?</h3>
+      <div class="field"><span class="small">Pitch</span><div class="seg" role="group" data-g="pitch"><button data-v="flat">Mostly flat</button><button data-v="on">Mostly on</button><button data-v="sharp">Mostly sharp</button></div></div>
+      <div class="field"><span class="small">Volume</span><div class="seg" role="group" data-g="vol"><button data-v="follow">Followed the track</button><button data-v="miss">Didn’t follow</button></div></div>
+      <div class="row"><button class="accent" id="btnReveal">Reveal the measurements</button><span class="small muted">Guessing first trains your ear to catch mistakes without the screen.</span></div></div>`;
+    body.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; t.guess[sg.dataset.g] = b.dataset.v; sg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
+    $('#btnReveal').addEventListener('click', () => { t.hidden = false; renderResults(); renderTakes(); draw(); setLive('Done', 'Take ' + t.id + ' revealed', ''); });
+    return;
+  }
+  const st = t.stats, prev = similarTakes(t).filter(o => o !== t && o.id < t.id && !o.hidden).pop();
+  let html = '';
+  if (t.source === 'example') html += `<p class="banner">This is an example take the app sang to show what feedback looks like. It’s not you. Press <b>Sing a take</b> to record your own.</p>`;
+  if (t.source === 'file') html += `<p class="banner">Uploaded recording, assumed to start at ${fmtT(t.a)}. If the lines look shifted, use <b>Align timing</b>.</p>`;
+  if (t.alignHint) html += `<div class="note warn"><p>This take looks shifted in time by about ${Math.abs(t.alignHint)} ms, which can make good notes look wrong. <button data-act="align2" style="margin-left:6px">Align timing</button></p></div>`;
+  html += `<div class="tiles">${tile('On pitch', Math.round(st.onPitch * 100) + '%', prev ? (st.onPitch - prev.stats.onPitch) * 100 : null, ' pts')}${tile('Leaning', leaning(st.bias), null)}${tile('Volume follows', Math.round(st.vol * 100) + '%', prev ? (st.vol - prev.stats.vol) * 100 : null, ' pts')}${tile('Melody sung', Math.round(st.sung * 100) + '%', null)}</div>`;
+  if (t.guess && (t.guess.pitch || t.guess.vol)) {
+    const meas = Math.abs(st.bias) < 15 ? 'on' : st.bias < 0 ? 'flat' : 'sharp', mv = st.vol >= 0.6 ? 'follow' : 'miss';
+    const lines = [];
+    if (t.guess.pitch) lines.push(t.guess.pitch === meas ? `Your pitch guess was right: ${meas === 'on' ? 'mostly on' : 'mostly ' + meas}.` : `You guessed ${t.guess.pitch === 'on' ? 'mostly on' : 'mostly ' + t.guess.pitch}; the measurement says ${meas === 'on' ? 'mostly on' : 'mostly ' + meas} (${leaning(st.bias)}).`);
+    if (t.guess.vol) lines.push(t.guess.vol === mv ? 'Your volume guess was right.' : `You guessed you ${t.guess.vol === 'follow' ? 'followed' : 'didn’t follow'} the volume; you ${mv === 'follow' ? 'did follow it' : 'mostly didn’t'}.`);
+    html += `<p class="note ${lines.every(l => /right/.test(l)) ? 'good' : 'warn'}">${lines.join(' ')}</p>`;
+  }
+  html += `<h3>What to work on</h3><div class="hints">` + st.hints.map((h, k) => `<div class="hint ${h.tone}"><div><p><b>${esc(h.title)}</b></p><p class="small">${esc(h.ev)}</p><p class="try">Try: ${esc(h.tip)}</p></div>${h.drill ? `<button data-drill="${k}">Drill ${fmtT(h.drill.a)}–${fmtT(h.drill.b)}</button>` : ''}</div>`).join('') + `</div>`;
+  if (st.phrases.length > 1) {
+    html += `<div class="field"><div class="head"><h3>Phrase by phrase</h3><span class="small muted">Tap a phrase to drill it</span></div><div class="phrases">` + st.phrases.map((p, k) => `<button class="phr" data-ph="${k}" title="${fmtT(p.a)}–${fmtT(p.b)}: ${Math.round(p.onPitch * 100)}% on pitch"><i style="height:${Math.max(4, Math.round(p.onPitch * 44))}px;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i><span>${Math.round(p.onPitch * 100)}%</span></button>`).join('') + `</div></div>`;
+  }
+  const guidedGood = similarTakes(t).filter(o => o.mode === 'guided' && !o.hidden && o.source !== 'example').slice(-2);
+  if (guidedGood.length === 2 && guidedGood.every(o => o.stats.onPitch >= 0.7) && S.set.mode === 'guided') html += `<p class="note good">Two strong guided takes on this passage. Switch to <b>Blind</b>: sing without seeing your line, guess how it went, then check. That’s how the skill moves from the screen to your ear.</p>`;
+  html += `<div class="row"><button data-act="play">Play my take</button><button data-act="playTrack">Play with the track</button>${t.source !== 'example' ? '<button data-act="align" title="Shift your take in time so it lines up with the melody">Align timing</button>' : ''}${prev ? `<span class="small muted">Dashed line on the graph: take ${prev.id}</span>` : ''}</div>`;
+  body.innerHTML = html;
+  body.querySelectorAll('[data-drill]').forEach(b => b.addEventListener('click', () => setRegion(st.hints[+b.dataset.drill].drill)));
+  body.querySelectorAll('[data-ph]').forEach(b => b.addEventListener('click', () => { const p = st.phrases[+b.dataset.ph]; setRegion({ a: Math.max(0, p.a - 0.3), b: Math.min(S.ref.dur, p.b + 0.3) }); }));
+  body.querySelector('[data-act=play]').addEventListener('click', () => replayTake(t, false));
+  body.querySelector('[data-act=playTrack]').addEventListener('click', () => replayTake(t, true));
+  body.querySelectorAll('[data-act=align],[data-act=align2]').forEach(al => al.addEventListener('click', () => alignTake(t)));
+}
+function bestOffset(t) {
+  const R = S.ref, i0 = idxOf(t.a), i1 = idxOf(t.b); let best = t.offset, bestE = Infinity, curE = Infinity;
+  for (let o = t.offset - 0.35; o <= t.offset + 0.35; o += HOPS) {
+    const shift = t.t0Track - o; let s = 0, n = 0;
+    for (let i = i0; i <= i1; i++) { if (!voiced(i)) continue; const j = Math.round((i * HOPS - shift) / HOPS); if (j < 0 || j >= t.raw.n) continue; const u = t.raw.midi[j]; if (isNaN(u)) continue; s += Math.min(300, Math.abs(errC(u, R.midi[i]))); n++; }
+    if (n > 20 && s / n < bestE) { bestE = s / n; best = o; }
+    if (Math.abs(o - t.offset) < HOPS / 2 && n > 0) curE = s / n;
+  }
+  return { best, bestE, curE };
+}
+function alignTake(t) {
+  const { best } = bestOffset(t);
+  t.alignHint = null;
+  const moved = Math.round((best - t.offset) * 1000);
+  t.offset = best; mapTake(t); computeStats(t);
+  if (t.source === 'mic') { S.set.offsetMs = clamp(Math.round(best * 1000), -100, 400); saveSettings(); renderSettings(); }
+  renderResults(); renderTakes(); draw();
+  setLive('Aligned', Math.abs(moved) < 10 ? 'Timing was already right' : `Shifted ${minus(moved)} ms`, t.source === 'mic' ? 'Future takes use this timing correction.' : '', 'good');
+}
+function renderTakes() {
+  const rows = $('#takeRows'), list = S.takes.slice().reverse();
+  const best = {}; S.takes.filter(t => !t.hidden && t.source !== 'example').forEach(t => { const k = t.a.toFixed(1) + '-' + t.b.toFixed(1); if (!best[k] || t.stats.onPitch > best[k].stats.onPitch) best[k] = t; });
+  const bests = new Set(Object.values(best).filter(t => similarTakes(t).filter(o => o.source !== 'example').length > 1));
+  rows.innerHTML = list.length ? list.map(t => `<tr class="${t === S.selected ? 'sel' : ''}"><td>${t.source === 'example' ? '<span class="badge">Example</span>' : 'Take ' + t.id}${bests.has(t) ? ' <span class="badge best">Best</span>' : ''}</td><td class="num">${fmtT(t.a)}–${fmtT(t.b)}</td><td>${t.mode === 'blind' ? 'Blind' : 'Guided'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.onPitch * 100) + '%'}</td><td class="num">${t.hidden ? '?' : Math.round(t.stats.vol * 100) + '%'}</td><td class="num">${t.hidden ? '?' : leaning(t.stats.bias)}</td><td><div class="row" style="flex-wrap:nowrap"><button class="ghost" data-show="${t.id}">Show</button><button class="ghost" data-cmp="${t.id}">${S.overlay === t ? 'Comparing' : 'Compare'}</button></div></td></tr>`).join('') : `<tr><td colspan="7" class="muted">No takes yet.</td></tr>`;
+  rows.querySelectorAll('[data-show]').forEach(b => b.addEventListener('click', () => { const t = S.takes.find(x => x.id === +b.dataset.show); S.selected = t; if (S.overlay === t) S.overlay = null; S.view.center = (t.a + Math.min(t.b, t.a + S.view.span)) / 2; renderResults(); renderTakes(); draw(); }));
+  rows.querySelectorAll('[data-cmp]').forEach(b => b.addEventListener('click', () => { const t = S.takes.find(x => x.id === +b.dataset.cmp); S.overlay = S.overlay === t ? null : t; renderTakes(); draw(); }));
+  // sparkline
+  const sv = $('#spark'), pts = S.takes.filter(t => !t.hidden && t.source !== 'example'), W = sv.clientWidth || 600, H = 60;
+  if (pts.length < 2) { sv.innerHTML = `<text x="0" y="34" fill="var(--muted)" font-size="13">Your progress line appears after two takes.</text>`; return; }
+  const X = k => 12 + k / (pts.length - 1) * (W - 60), Y = v => 8 + (1 - v) * (H - 20);
+  const d = pts.map((t, k) => (k ? 'L' : 'M') + X(k).toFixed(1) + ' ' + Y(t.stats.onPitch).toFixed(1)).join(' ');
+  const last = pts[pts.length - 1];
+  sv.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  sv.innerHTML = `<line x1="12" x2="${W - 48}" y1="${Y(0.7)}" y2="${Y(0.7)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="${W - 44}" y="${Y(0.7) + 4}" font-size="11" fill="var(--muted)">70%</text><path d="${d} L${X(pts.length - 1)} ${Y(0)} L${X(0)} ${Y(0)} Z" fill="var(--accent)" opacity=".1"/><path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2"/>${pts.map((t, k) => `<circle cx="${X(k)}" cy="${Y(t.stats.onPitch)}" r="${t === last ? 4 : 2.5}" fill="var(--accent)"/>`).join('')}<text x="${X(pts.length - 1) + 8}" y="${Y(last.stats.onPitch) - 6}" font-size="12" font-weight="700" fill="var(--ink)">${Math.round(last.stats.onPitch * 100)}%</text>`;
+}
+
+/* ---------- range test ---------- */
+async function rangeTest(which) {
+  if (S.playing || S.busy) return;
+  try { await ensureMic(); } catch (e) { showMicHelp(e); $('#rangeOut').textContent = 'Microphone needed for the range test'; return; }
+  await ac().resume(); S.busy = true; setButtons();
+  const vals = [], end = performance.now() + 3200;
+  while (performance.now() < end) { const f = liveFrame(); if (!isNaN(f.midi)) vals.push(f.midi); $('#rangeOut').textContent = `Hold your ${which} note… ${Math.ceil((end - performance.now()) / 1000)} s ${isNaN(f.midi) ? '' : '· ' + noteName(f.midi)}`; await sleep(40); }
+  S.busy = false; setButtons();
+  if (vals.length < 20) { $('#rangeOut').textContent = 'Didn’t hear a steady note. Try again, a little louder.'; return; }
+  S.range[which] = Math.round(median(vals)); store.set('range', S.range); renderRange(); draw();
+}
+
+/* ---------- wiring ---------- */
+$('#btnTake').addEventListener('click', () => { if (!S.set.phones) setLive('Tip', 'Headphones?', 'Without headphones the mic also hears the track. Tick the box in Settings when you wear them.'); startTake(); });
+$('#btnListen').addEventListener('click', startListen);
+$('#btnStop').addEventListener('click', stopAll);
+$('#btnLow').addEventListener('click', () => rangeTest('low'));
+$('#btnHigh').addEventListener('click', () => rangeTest('high'));
+$('#btnClearRegion').addEventListener('click', () => { S.region = null; renderRegion(); draw(); });
+$('#zoomIn').addEventListener('click', () => { S.view.span = clamp(S.view.span / 1.5, 2, 60); draw(); });
+$('#zoomOut').addEventListener('click', () => { S.view.span = clamp(S.view.span * 1.5, 2, 60); draw(); });
+$('#segTol').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.set.tol = +b.dataset.v; saveSettings(); renderSettings(); S.takes.forEach(computeStats); renderResults(); renderTakes(); draw(); });
+$('#segMode').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.set.mode = b.dataset.v; saveSettings(); renderSettings(); renderResults(); });
+$('#chkOct').addEventListener('change', e => { S.set.octFree = e.target.checked; saveSettings(); S.takes.forEach(computeStats); renderRange(); renderResults(); renderTakes(); draw(); });
+$('#chkPhones').addEventListener('change', e => { S.set.phones = e.target.checked; saveSettings(); });
+$('#chkSelf').addEventListener('change', e => { S.set.hearSelf = e.target.checked; saveSettings(); renderSettings(); if (S.mic) S.mic.mon.gain.value = S.set.hearSelf ? S.set.selfVol : 0; });
+$('#rngSelf').addEventListener('input', e => { S.set.selfVol = +e.target.value; saveSettings(); renderSettings(); if (S.mic && S.set.hearSelf) S.mic.mon.gain.value = S.set.selfVol; });
+$('#rngTrack').addEventListener('input', e => { S.set.trackVol = +e.target.value; saveSettings(); renderSettings(); if (S.trackGain) S.trackGain.gain.value = S.set.trackVol; });
+$('#rngOff').addEventListener('input', e => { S.set.offsetMs = +e.target.value; saveSettings(); renderSettings(); });
+$('#fileTrack').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  if (S.playing) stopAll();
+  try { const buf = await ac().decodeAudioData(await f.arrayBuffer()); await loadReference(buf, f.name.replace(/\.[^.]+$/, ''), false); }
+  catch (err) { setLive('Error', 'Couldn’t read that file', 'Use an MP3, WAV, M4A or OGG audio file.', 'warn'); }
+});
+$('#fileTake').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f || !S.ref) return;
+  try { const buf = await ac().decodeAudioData(await f.arrayBuffer()); setLive('Analysing', 'Measuring your take…', ''); const x = await toSR(buf); const { a, b } = effRegion();
+    const tk = await addTake({ source: 'file', x, play: buf, t0Track: a, offset: 0, a, b: Math.min(b, a + buf.duration), mode: S.set.mode });
+    setLive('Done', tk.hidden ? 'Blind take uploaded' : 'Take ' + tk.id + ' measured', '', 'good'); }
+  catch (err) { setLive('Error', 'Couldn’t read that recording', 'Use an MP3, WAV, M4A or OGG audio file.', 'warn'); }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,button,select,textarea')) return;
+  if (e.code === 'Space') { e.preventDefault(); S.playing ? stopAll() : startListen(); }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); if (!S.playing) startTake(); }
+});
+let rz = 0; window.addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => { draw(); renderTakes(); }); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+renderSettings(); renderRegion(); renderRange(); renderResults(); renderTakes(); setButtons();
+loadSample().catch(err => { console.error(err); setLive('Error', 'Couldn’t build the sample', 'Upload an MP3 to start.', 'warn'); });
+window.__takewise = S;
+})();
+</script>
+
+</body></html>
