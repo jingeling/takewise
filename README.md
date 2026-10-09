@@ -22,7 +22,7 @@ Each version is its own commit on `main`, so you can return to any of them:
 
 | Version | Commit | What changed |
 | --- | --- | --- |
-| v6 | (this commit) | Calmer step-by-step layout: Pick a song → Sing → How it went → Fix one thing. Progress and settings open from the header. Backups and the progress file are checked field by field before use, closing a hole where a tampered backup could run code. Uses your computer's own fonts, so the app makes no outside requests. |
+| v6 | `f7c2bf5` | Calmer step-by-step layout: Pick a song → Sing → How it went → Fix one thing. Progress and settings open from the header. Backups and the progress file are checked field by field before use, closing a hole where a tampered backup could run code. Uses your computer's own fonts, so the app makes no outside requests. |
 | v5 | `97fd04b` | Progress is saved to a folder on your computer and survives clearing browser data. |
 | v4 | `5425f1b` | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
 | v3 | `bad08fb` | One app on your computer; the Claude link became a preview with a download button. Backups replace export/import. |
