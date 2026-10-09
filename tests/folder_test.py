@@ -15,6 +15,7 @@ def ok(n,c,d=''): res.append(c); print('PASS' if c else 'FAIL', n, d, flush=True
 def hook(pg):
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.on('console', lambda m: errs.append(m.text) if m.type=='error' and 'fonts' not in m.text and 'ERR_' not in m.text else None)
+def step(pg, n): pg.click(f'.steps [data-step="{n}"]'); time.sleep(0.3)
 def ready(pg): pg.wait_for_function('window.__takewise && window.__takewise.ref && !window.__takewise.busy', timeout=90000); time.sleep(1)
 prof='fprofile'; shutil.rmtree(prof, ignore_errors=True)
 try:
@@ -26,8 +27,8 @@ try:
     ok('folder connected', 'Saved to your folder “Takewise”' in pg.inner_text('#storeStatus'), pg.inner_text('#storeStatus'))
     pg.set_input_files('#fileTrack', 'Twinkle guide vocal.mp3'); pg.wait_for_function("__takewise.ref.name==='Twinkle guide vocal'", timeout=90000); time.sleep(1)
     for k in range(2):
-        pg.click('#btnTake'); pg.wait_for_function(f'__takewise.history.length>{k}', timeout=60000); time.sleep(0.5)
-    pg.click('#goalUp'); time.sleep(2)
+        step(pg, 2); pg.click('#btnTake'); pg.wait_for_function(f'__takewise.history.length>{k}', timeout=60000); time.sleep(0.5)
+    pg.click('#btnProgress'); pg.click('#goalUp'); pg.keyboard.press('Escape'); time.sleep(2)
     files=pg.evaluate(LIST); print('   folder:', files)
     prog=[f for f in files if f.startswith('Takewise/Takewise data/takewise-progress.json')]
     ok('progress file written', len(prog)==1)
@@ -49,7 +50,7 @@ try:
     ok('history, streak and goal restored', after==before, f'before {before} after {after}')
     ok('restore message', 'Brought back 2 takes' in pg.inner_text('#dataMsg'), pg.inner_text('#dataMsg'))
     ok('track reopened from folder', pg.evaluate('__takewise.ref.name')=='Twinkle guide vocal', pg.evaluate('__takewise.ref.name'))
-    pg.locator('[data-show]').first.click(); pg.wait_for_function('__takewise.selected && __takewise.selected.light===false', timeout=30000)
+    step(pg, 3); pg.click('#takesBox summary'); pg.locator('[data-show]').first.click(); pg.wait_for_function('__takewise.selected && __takewise.selected.light===false', timeout=30000)
     ok('old recording plays back from folder', pg.evaluate('!!__takewise.selected.play && !!__takewise.selected.um'))
     pg.screenshot(path='folder_restored.png', full_page=False)
     ctx.close()
@@ -63,7 +64,7 @@ try:
     ok('Sing a take re-allows the folder', 'Saved to your folder' in pg.inner_text('#storeStatus') and pg.evaluate('window.__asked')==1, pg.inner_text('#storeStatus'))
     files=pg.evaluate(LIST); ok('3rd take written to folder', len([f for f in files if '/recordings/' in f])==3)
     # ---- delete all clears the folder too ----
-    pg.click('#btnDelete'); ok('delete warns about the folder', 'your folder “Takewise”' in pg.inner_text('#delWrap'), pg.inner_text('#delWrap')); pg.click('#delYes'); time.sleep(2)
+    pg.click('#btnProgress'); pg.click('#btnDelete'); ok('delete warns about the folder', 'your folder “Takewise”' in pg.inner_text('#delWrap'), pg.inner_text('#delWrap')); pg.click('#delYes'); time.sleep(2)
     files=pg.evaluate(LIST); doc=json.loads(pg.evaluate("""(async()=>{const r=await navigator.storage.getDirectory(); const d=await (await r.getDirectoryHandle('Takewise')).getDirectoryHandle('Takewise data'); return await (await (await d.getFileHandle('takewise-progress.json')).getFile()).text();})()"""))
     ok('delete empties folder', len(doc['takes'])==0 and not any('/recordings/' in f for f in files), str(files))
     ok('still connected after delete', 'Saved to your folder' in pg.inner_text('#storeStatus'))

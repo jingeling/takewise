@@ -9,6 +9,12 @@ def hook(pg):
     pg.on('pageerror', lambda e: errs.append('PAGEERROR '+str(e)))
     pg.on('console', lambda m: errs.append('CONSOLE '+m.text) if m.type=='error' and 'ERR_TUNNEL' not in m.text and 'fonts.g' not in m.text else None)
 def ready(pg): pg.wait_for_function('window.__takewise && window.__takewise.ref && !window.__takewise.busy', timeout=90000); time.sleep(0.5)
+def step(pg, n): pg.click(f'.steps [data-step="{n}"]'); time.sleep(0.3)
+def sheet(pg, which): pg.click('#btnProgress' if which=='progress' else '#btnSettings'); time.sleep(0.3)
+def close(pg): pg.keyboard.press('Escape'); time.sleep(0.2)
+def takes_table(pg):
+    step(pg, 3)
+    if not pg.evaluate("document.querySelector('#takesBox').open"): pg.click('#takesBox summary'); time.sleep(0.3)
 def take(pg, n_before, wait=25):
     pg.click('#btnTake'); pg.wait_for_function(f'window.__takewise.history.length>{n_before}', timeout=wait*1000+30000); time.sleep(0.5)
 prof=os.path.join(OUT,'profile'); shutil.rmtree(prof, ignore_errors=True)
@@ -16,6 +22,7 @@ with sync_playwright() as p:
     ctx=p.chromium.launch_persistent_context(prof, args=ARGS, viewport={'width':1280,'height':1500}, accept_downloads=True)
     pg=ctx.pages[0]; hook(pg); pg.goto('file://'+APP); ready(pg)
     pg.screenshot(path=f'{OUT}/01_first_run.png', full_page=True)
+    ok('first run opens on Pick a song', pg.is_visible('#step1') and not pg.is_visible('#stepSing'))
     ok('first run shows example take', pg.evaluate("window.__takewise.selected && window.__takewise.selected.source==='example'"))
     ok('first run nudge', 'start here' in pg.inner_text('#tNudge').lower(), pg.inner_text('#tNudge'))
     # J2 upload MP3
@@ -32,6 +39,7 @@ with sync_playwright() as p:
     pg.click('#btnLow'); time.sleep(4.2)
     ok('range low recorded', pg.evaluate('__takewise.range.low')!=None, pg.inner_text('#rangeOut'))
     # J4 drill via phrase: select region by drag on overview
+    step(pg, 2)
     box=pg.locator('#overview').bounding_box()
     pg.mouse.move(box['x']+box['width']*0.05, box['y']+20); pg.mouse.down(); pg.mouse.move(box['x']+box['width']*0.3, box['y']+20, steps=8); pg.mouse.up(); time.sleep(0.3)
     reg=pg.evaluate('__takewise.region'); ok('drag selects a passage', reg is not None and reg['b']-reg['a']>3, json.dumps(reg)+' | '+pg.inner_text('#regionText'))
@@ -40,30 +48,36 @@ with sync_playwright() as p:
     t=pg.evaluate("({a:__takewise.selected.a,b:__takewise.selected.b,src:__takewise.selected.source,ev:__takewise.selected.events, on:__takewise.selected.stats.onPitch})")
     ok('passage take recorded within passage', abs(t['a']-reg['a'])<0.01 and t['b']<=reg['b']+0.01, json.dumps(t))
     ok('first take event', any('First take' in e for e in t['ev']), json.dumps(t['ev']))
+    ok('take moves on to How it went', pg.is_visible('#step3') and pg.is_visible('.score'))
+    step(pg, 2)
     # J12 stop mid take
     pg.click('#btnClearRegion'); time.sleep(0.2)
     pg.click('#btnTake'); time.sleep(5); pg.click('#btnStop'); pg.wait_for_function('__takewise.history.length>1', timeout=30000); time.sleep(0.5)
     s=pg.evaluate("({a:__takewise.selected.a,b:__takewise.selected.b})"); ok('stopped take length ~3.5s', 2.5 < s['b']-s['a'] < 4.2, json.dumps(s))
     # J5 blind
-    pg.click('#segMode button[data-v=blind]'); 
+    step(pg, 2); pg.click('#segMode button[data-v=blind]'); 
     box=pg.locator('#overview').bounding_box(); pg.mouse.move(box['x']+box['width']*0.05, box['y']+20); pg.mouse.down(); pg.mouse.move(box['x']+box['width']*0.3, box['y']+20, steps=8); pg.mouse.up()
     take(pg, 2, 10)
-    ok('blind take hides scores', pg.is_visible('#btnReveal') and '?' in pg.inner_text('#takeRows'))
+    ok('blind take hides scores', pg.is_visible('#btnReveal') and '?' in pg.text_content('#takeRows'), str(pg.is_visible('#btnReveal')))
     pg.click('[data-g=pitch] button[data-v=on]'); pg.click('[data-g=vol] button[data-v=follow]'); pg.click('#btnReveal'); time.sleep(0.3)
     ok('reveal shows guess check', 'guess' in pg.inner_text('#resBody').lower(), pg.inner_text('#resBody')[:160].replace('\n',' | '))
-    pg.click('#segMode button[data-v=guided]')
+    step(pg, 2); pg.click('#segMode button[data-v=guided]')
     # J8 settings
-    pg.click('#segTol button[data-v="25"]'); pg.click('#chkOct'); pg.click('#chkOct'); time.sleep(0.3)
+    sheet(pg, 'settings'); pg.click('#segTol button[data-v="25"]'); pg.click('#chkOct'); pg.click('#chkOct'); time.sleep(0.3); close(pg)
+    step(pg, 3)
     ok('settings change no crash', True)
     # drill button
     if pg.locator('[data-drill]').count():
         pg.locator('[data-drill]').first.click(); time.sleep(0.4); r=pg.evaluate('__takewise.region'); ok('drill passage is short', r and r['b']-r['a']<=9, pg.inner_text('#regionText'))
+        ok('drill opens Fix one thing', pg.is_visible('#fixHead') and pg.inner_text('#h-s4').startswith('Fix'), pg.inner_text('#h-s4'))
     ok('phrase-by-phrase shown', pg.locator('.phr').count()>=2, str(pg.locator('.phr').count()))
     ok('friendly times (no tenths) in labels', '.' not in pg.inner_text('#regionText') and '.' not in pg.inner_text('#resMeta'), pg.inner_text('#regionText')+' / '+pg.inner_text('#resMeta'))
     # J13 keyboard listen
-    pg.click('h1'); pg.keyboard.press('Space'); time.sleep(0.6); ok('space starts listening', pg.inner_text('#livePill')=='Listening to the track', pg.inner_text('#livePill')); pg.keyboard.press('Space'); time.sleep(0.3)
+    pg.click('.brand'); pg.keyboard.press('Space'); time.sleep(0.6); ok('space starts listening', pg.inner_text('#livePill')=='Listening to the track', pg.inner_text('#livePill')); pg.keyboard.press('Space'); time.sleep(0.3)
     # backup
+    sheet(pg, 'progress')
     with pg.expect_download() as d: pg.click('#btnExport')
+    close(pg)
     bpath=os.path.join(OUT,'backup.json'); d.value.save_as(bpath); bk=json.load(open(bpath))
     ok('backup has takes and tracks', len(bk['takes'])==3 and any(t['id'].startswith('trk-') for t in bk['tracks']), f"{len(bk['takes'])} takes")
     pg.screenshot(path=f'{OUT}/03_after_takes.png', full_page=True)
@@ -75,15 +89,18 @@ with sync_playwright() as p:
     ok('reopen restores takes', pg.evaluate('__takewise.takes.length')==hist, str(pg.evaluate('__takewise.takes.length')))
     ok('reopen today goal', pg.inner_text('#tGoalTxt')=='3 / 3 takes', pg.inner_text('#tGoalTxt'))
     ok('reopen remembers settings', pg.evaluate('__takewise.set.tol')==25)
+    ok('returning singer opens on Sing', pg.is_visible('#stepSing') and pg.is_visible('#singHead'))
+    takes_table(pg)
     # J14 load recording of saved take
     pg.locator('[data-show]').first.click(); pg.wait_for_function('__takewise.selected && __takewise.selected.light===false', timeout=30000)
     ok('saved take recording loads', pg.evaluate('!!__takewise.selected.um'))
     # J11 switch to sample via tracks list
+    step(pg, 1)
     btn=pg.locator('#tracksList [data-open="sample"]')
     if btn.count(): btn.click(); pg.wait_for_function("__takewise.ref.id==='sample'", timeout=60000); time.sleep(0.5); ok('switch track to sample', True)
     else: ok('switch track to sample', False, pg.inner_text('#tracksList'))
     # J10 delete all
-    pg.click('#btnDelete'); pg.click('#delYes'); time.sleep(1)
+    sheet(pg, 'progress'); pg.click('#btnDelete'); pg.click('#delYes'); time.sleep(1)
     ok('delete clears progress', pg.evaluate('__takewise.history.length')==0 and pg.inner_text('#tStreak')=='0')
     ctx.close()
     ctx=p.chromium.launch_persistent_context(prof, args=ARGS, viewport={'width':1280,'height':1500}); pg=ctx.pages[0]; hook(pg); pg.goto('file://'+APP); ready(pg)
