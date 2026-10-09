@@ -22,6 +22,7 @@ Each version is its own commit on `main`, so you can return to any of them:
 
 | Version | Commit | What changed |
 | --- | --- | --- |
+| v6.1 | (this commit) | How it went gets a row to switch between your recent takes, so the whole-song breakdown stays one tap away after practising a passage. Long songs show their phrases as one compact strip plus the three weakest phrases. |
 | v6 | `f7c2bf5` | Calmer step-by-step layout: Pick a song → Sing → How it went → Fix one thing. Progress and settings open from the header. Backups and the progress file are checked field by field before use, closing a hole where a tampered backup could run code. Uses your computer's own fonts, so the app makes no outside requests. |
 | v5 | `97fd04b` | Progress is saved to a folder on your computer and survives clearing browser data. |
 | v4 | `5425f1b` | Review fixes: short drill passages, friendlier wording, uploaded recordings line up automatically, all tracks listed. |
@@ -38,4 +39,4 @@ To go back to a version, ask Claude: “roll Takewise back to v2”. Claude rest
 - `Takewise.html` is the app you open. It is built from the source; don't edit it directly.
 - `src/takewise.html` is the source.
 - `build.sh` rebuilds `Takewise.html` from the source.
-- `tests/` has the scripts used to test the app with a simulated singer in a headless browser. `journey.py` runs 37 checks through the main things a user does. `security_test.py` restores a tampered backup and checks that nothing in it can run as code.
+- `tests/` has the scripts used to test the app with a simulated singer in a headless browser. `journey.py` runs 37 checks through the main things a user does. `long_test.py` checks a longer song and switching back to the whole-song take. `security_test.py` restores a tampered backup and checks that nothing in it can run as code.

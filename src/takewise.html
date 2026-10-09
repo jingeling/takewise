@@ -161,6 +161,17 @@ canvas{display:block;width:100%}
 .phr .bar{height:12px;border-radius:6px;background:var(--row);overflow:hidden}
 .phr .bar i{display:block;height:100%;border-radius:6px}
 .phr b{text-align:right}
+.phrstrip{display:flex;align-items:flex-end;gap:2px;height:64px;margin-bottom:6px}
+.phrstrip button{flex:1 1 0;min-width:0;min-height:0;height:100%;padding:0;border:0;border-radius:3px;background:var(--row);display:flex;align-items:flex-end;overflow:hidden}
+.phrstrip button i{display:block;width:100%;border-radius:3px 3px 0 0}
+.phrstrip button:hover i{filter:brightness(.85)}
+.phrtime{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-bottom:14px}
+.grid2 > .wide{grid-column:1 / -1}
+.takepick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.takepick > span{font-size:14px;color:var(--muted);margin-right:4px}
+.takepick button{min-height:40px;font-size:14px;padding:0 14px;gap:6px}
+.takepick button[aria-pressed="true"]{border-color:var(--accent);background:var(--soft)}
+.takepick button .s{font-weight:400;color:var(--muted)}
 .fixcard{background:var(--soft);border-radius:var(--r);padding:26px 28px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
 .fixcard > div{display:grid;gap:6px;max-width:680px}
 .fixcard .try{color:var(--muted)}
@@ -852,7 +863,8 @@ async function startTake() {
   const { a, b } = effRegion(), lead = 1.5, startAt = ctx.currentTime + lead;
   for (let k = 0; k < 3; k++) { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = k === 2 ? 1320 : 880; g.gain.setValueAtTime(0.0001, startAt - lead + k * 0.5); g.gain.exponentialRampToValueAtTime(0.25, startAt - lead + k * 0.5 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, startAt - lead + k * 0.5 + 0.09); o.connect(g); g.connect(ctx.destination); o.start(startAt - lead + k * 0.5); o.stop(startAt - lead + k * 0.5 + 0.1); }
   const src = playTrack(startAt, a, b);
-  S.playing = { kind: 'take', src, startAt, a, b, rec, live: [], mode: S.set.mode, noise };
+  const keep = { sel: S.selected, ov: S.overlay };
+  S.playing = { kind: 'take', src, startAt, a, b, rec, live: [], mode: S.set.mode, noise, keep };
   S.selected = null; S.overlay = similarTakes({ a, b }).filter(t => !t.hidden).pop() || null;
   src.onended = finishTake;
   S.busy = false; setButtons(); loop();
@@ -862,7 +874,7 @@ async function finishTake() {
   p.finishing = true; p.endAt = S.ctx.currentTime; p.rec.stop(); await sleep(250);
   S.playing = null; setButtons(); $('#countIn').textContent = '';
   const ctx = S.ctx, len = p.rec.chunks.reduce((s, c) => s + c.length, 0);
-  if (len < ctx.sampleRate * 0.5 || p.rec.t0 == null) { setLive('Too short', 'That take was too short to analyse.', '', 'warn'); draw(); return; }
+  if (len < ctx.sampleRate * 0.5 || p.rec.t0 == null) { S.selected = p.keep.sel; S.overlay = p.keep.ov; renderResults(); setLive('Too short', 'That take was too short to analyse.', '', 'warn'); draw(); return; }
   const pcm = new Float32Array(len); let o = 0; for (const c of p.rec.chunks) { pcm.set(c, o); o += c.length; }
   const play = ctx.createBuffer(1, len, ctx.sampleRate); play.copyToChannel(pcm, 0);
   setLive('Analysing', 'Measuring your take…', '');
@@ -1138,21 +1150,40 @@ function tile(label, value, delta, unit, sub) {
 function leaning(b) { if (isNaN(b)) return '—'; const a = Math.abs(b), w = b < 0 ? 'flat' : 'sharp'; return a < 10 ? 'Centred' : a < 25 ? 'A touch ' + w : a < 60 ? w[0].toUpperCase() + w.slice(1) : 'Very ' + w; }
 function verdict(op) { return op >= 0.85 ? 'Lovely. Mostly on pitch.' : op >= 0.7 ? 'Nice. Mostly on pitch.' : op >= 0.5 ? 'Getting there.' : 'A tricky one. Let’s slow it down.'; }
 const ARROW = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+// Recent takes to switch between; the latest whole-song take always stays in the row.
+function takePicker(cur) {
+  if (!S.ref) return '';
+  const own = S.takes.filter(x => x.source !== 'example'); if (own.length < 2 && (!own.length || own[0] === cur)) return '';
+  const isWhole = x => x.b - x.a >= 0.8 * S.ref.dur;
+  const whole = own.filter(isWhole).pop();
+  let list = own.slice(-4).reverse();
+  if (whole && !list.includes(whole)) list = [whole].concat(list.slice(0, 3));
+  if (!list.includes(cur) && cur) list = [cur].concat(list.slice(0, 3));
+  return `<div class="takepick" role="group" aria-label="Choose which take to look at"><span>Showing</span>` + list.map(x => `<button data-pick="${x.id}" aria-pressed="${x === cur}">${isWhole(x) ? 'Whole song' : fmtR(x.a, x.b)} <span class="s">· ${x.hidden ? '?' : P(x.stats.onPitch) + '%'} · take ${x.id}</span></button>`).join('') + `</div>`;
+}
+async function pickTake(id) {
+  const t = S.takes.find(x => x.id === id); if (!t) return;
+  if (t.light && t.hasAudio) await hydrate(t);
+  S.selected = t; S.overlay = similarTakes(t).filter(o => o !== t && o.id < t.id && !o.hidden && o.source !== 'example').pop() || null;
+  S.view.center = (t.a + Math.min(t.b, t.a + S.view.span)) / 2;
+  renderResults(); renderTakes(); draw();
+}
 function renderResults() {
   const body = $('#resBody'), meta = $('#resMeta'), t = S.selected;
   if (!t) { meta.textContent = ''; body.innerHTML = '<div class="card empty"><h2>No take yet</h2><p class="muted">Sing a take and you’ll see here how much was on pitch, which way you lean, whether you follow the volume, and the one thing to fix next.</p><button class="cta" data-goto="2">Go and sing</button></div>'; renderNav(); return; }
   meta.textContent = `${t.source === 'example' ? 'Example take' : 'Take ' + t.id} · ${fmtR(t.a, t.b)} · ${t.mode === 'blind' ? 'line hidden' : 'line shown'}`;
   if (t.hidden) {
-    body.innerHTML = `<div class="card guess"><h2>Before you look: how did it feel?</h2><p class="muted">Guessing first trains your ear to catch mistakes without the screen.</p>
+    body.innerHTML = takePicker(t) + `<div class="card guess"><h2>Before you look: how did it feel?</h2><p class="muted">Guessing first trains your ear to catch mistakes without the screen.</p>
       <div class="field" style="justify-items:center"><b class="small">Pitch</b><div class="seg" role="group" aria-label="Your pitch guess" data-g="pitch"><button data-v="flat">Mostly flat</button><button data-v="on">Mostly on</button><button data-v="sharp">Mostly sharp</button></div></div>
       <div class="field" style="justify-items:center"><b class="small">Volume</b><div class="seg" role="group" aria-label="Your volume guess" data-g="vol"><button data-v="follow">Followed the track</button><button data-v="miss">Didn’t follow</button></div></div>
       <button class="cta" id="btnReveal">Reveal the measurements</button></div>`;
     body.querySelectorAll('.seg').forEach(sg => sg.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; t.guess[sg.dataset.g] = b.dataset.v; sg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }));
+    body.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => pickTake(+b.dataset.pick)));
     $('#btnReveal').addEventListener('click', () => { t.hidden = false; persistTake(t, false); renderResults(); renderTakes(); draw(); setLive('Done', 'Take ' + t.id + ' revealed', ''); });
     renderNav(); return;
   }
   const st = t.stats, prev = similarTakes(t).filter(o => o !== t && o.id < t.id && !o.hidden && o.source !== 'example').pop();
-  let html = '';
+  let html = takePicker(t);
   if (t.events && t.events.length) html += `<div class="events">${t.events.map(e => `<p class="note good">${esc(e)}</p>`).join('')}</div>`;
   if (t.light) html += `<p class="banner">Saved take from ${esc(relDay(t.created))}. ${t.hasAudio ? 'Load the recording to see your pitch line and hear it again.' : 'The recording isn’t stored on this device, so only the scores are shown.'}${t.hasAudio ? ' <button data-act="hydrate" style="margin-left:6px">Load recording</button>' : ''}</p>`;
   if (t.source === 'example') html += `<p class="banner">This is an example take the app sang to show what feedback looks like. It’s not you. Press <b>Sing</b> to record your own.</p>`;
@@ -1171,8 +1202,16 @@ function renderResults() {
   const dl = (v, lbl) => `<span class="delta ${v >= 0 ? 'up' : 'down'}">${minus(Math.round(v * 100))} pts ${lbl}</span>`;
   const score = `<div class="card score"><svg width="132" height="132" viewBox="0 0 120 120" role="img" aria-label="${P(op)}% on pitch"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--row)" stroke-width="14"/><circle cx="60" cy="60" r="50" fill="none" stroke="var(--good)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(op * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/><text x="60" y="69" text-anchor="middle" style="font:800 28px var(--f-display);fill:var(--ink)">${P(op)}%</text></svg>
     <div class="facts"><h2>${verdict(op)}</h2><p>${lean} and follow the volume ${P(st.vol)}% of the time.</p><p class="small muted">${P(st.sung)}% of the melody sung</p>${prev ? `<p class="small">${dl(op - prev.stats.onPitch, 'on pitch')} · ${dl(st.vol - prev.stats.vol, 'volume')} <span class="muted">vs take ${prev.id}</span></p>` : ''}</div></div>`;
-  const phr = st.phrases.length > 1 ? `<div class="card"><div class="field" style="margin-bottom:12px"><h3>Phrase by phrase</h3><span class="small muted">Tap a phrase to drill it</span></div><div class="phrases">` + st.phrases.map((p, k) => `<button class="phr" data-ph="${k}" title="${fmtR(p.a, p.b)}: ${P(p.onPitch)}% on pitch"><span class="r">${fmtR(p.a, p.b)}</span><span class="bar"><i style="width:${Math.max(3, P(p.onPitch))}%;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i></span><b>${P(p.onPitch)}%</b></button>`).join('') + `</div></div>` : '';
-  html += `<div class="grid2">${score}${phr}</div>`;
+  const phRow = (p, k) => `<button class="phr" data-ph="${k}" title="${fmtR(p.a, p.b)}: ${P(p.onPitch)}% on pitch"><span class="r">${fmtR(p.a, p.b)}</span><span class="bar"><i style="width:${Math.max(3, P(p.onPitch))}%;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i></span><b>${P(p.onPitch)}%</b></button>`;
+  let phr = '';
+  if (st.phrases.length > 8) {
+    const weakest = st.phrases.map((p, k) => ({ p, k })).filter(x => x.p.n !== 0).sort((x, y) => x.p.onPitch - y.p.onPitch).slice(0, 3);
+    phr = `<div class="card wide"><div class="field" style="margin-bottom:12px"><h3>Phrase by phrase <span class="muted" style="font-weight:400">· ${st.phrases.length} phrases</span></h3><span class="small muted">Taller is better. Tap any bar to drill that phrase.</span></div>
+      <div class="phrstrip">${st.phrases.map((p, k) => `<button data-ph="${k}" title="${fmtR(p.a, p.b)}: ${P(p.onPitch)}% on pitch" aria-label="Phrase ${fmtR(p.a, p.b)}, ${P(p.onPitch)}% on pitch"><i style="height:${Math.max(4, P(p.onPitch))}%;background:${p.onPitch >= 0.7 ? 'var(--good)' : 'var(--warn)'}"></i></button>`).join('')}</div>
+      <div class="phrtime"><span>${fmtS(st.phrases[0].a)}</span><span>${fmtS(st.phrases[st.phrases.length - 1].b)}</span></div>
+      <h3 style="margin-bottom:6px">Weakest phrases</h3><div class="phrases">${weakest.map(x => phRow(x.p, x.k)).join('')}</div></div>`;
+  } else if (st.phrases.length > 1) phr = `<div class="card"><div class="field" style="margin-bottom:12px"><h3>Phrase by phrase</h3><span class="small muted">Tap a phrase to drill it</span></div><div class="phrases">` + st.phrases.map(phRow).join('') + `</div></div>`;
+  html += `<div class="grid2">${st.phrases.length > 8 ? score.replace('class="card score"', 'class="card score wide"') : score}${phr}</div>`;
   // the one thing to fix, the rest folded away
   const h0 = st.hints[0], rest = st.hints.slice(1);
   if (h0) html += `<div class="fixcard ${h0.tone === 'good' ? 'good' : ''}"><div><span class="label">${h0.tone === 'good' ? 'Next challenge' : 'One thing to fix'}</span><h2>${esc(h0.title)}</h2><p>${esc(h0.ev)}</p><p class="try">Try: ${esc(h0.tip)}</p></div><div class="row"><button data-goto="2">Sing again</button>${h0.drill ? `<button class="cta" data-drill="0">Fix this ${ARROW}</button>` : ''}</div></div>`;
@@ -1183,6 +1222,7 @@ function renderResults() {
   html += '<p class="small muted">Pitch is measured in cents: 100 cents is the step between two neighbouring piano keys.</p>';
   body.innerHTML = html;
   body.querySelectorAll('[data-drill]').forEach(b => b.addEventListener('click', () => { const h = st.hints[+b.dataset.drill]; setRegion(h.drill, h); }));
+  body.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => pickTake(+b.dataset.pick)));
   body.querySelectorAll('[data-ph]').forEach(b => b.addEventListener('click', () => { const p = st.phrases[+b.dataset.ph]; setRegion({ a: Math.max(0, p.a - 0.3), b: Math.min(S.ref.dur, p.b + 0.3) }, null); }));
   const pl = body.querySelector('[data-act=play]'); if (pl) pl.addEventListener('click', () => replayTake(t, false));
   const pt = body.querySelector('[data-act=playTrack]'); if (pt) pt.addEventListener('click', () => replayTake(t, true));
